@@ -1,13 +1,13 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import PatientForm from '@/components/PatientForm';
 import { usePatient } from '@/lib/useData';
+import { usePatientId } from '@/lib/useRouteParams';
 
 export default function EditPatientClient() {
-  const params = useParams();
   const router = useRouter();
-  const patientId = params.id as string;
+  const patientId = usePatientId();
   const { patient, loading } = usePatient(patientId);
 
   if (loading) {

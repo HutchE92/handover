@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   HospitalAtNightEntry,
@@ -13,11 +13,11 @@ import {
 import { usePatient, useHandoverNotes, useHospitalAtNightByPatient } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 import { useState } from 'react';
+import { usePatientId } from '@/lib/useRouteParams';
 
 export default function PatientDetailClient() {
-  const params = useParams();
   const router = useRouter();
-  const patientId = params.id as string;
+  const patientId = usePatientId();
 
   const { patient, loading: patientLoading } = usePatient(patientId);
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes(patientId);

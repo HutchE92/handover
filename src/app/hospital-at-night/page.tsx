@@ -257,7 +257,7 @@ export default function HospitalAtNightPage() {
   const entries: HospitalAtNightWithPatient[] = rawEntries.map(entry => ({
     ...entry,
     patient: patients.find(p => p.id === entry.patientId),
-    latestHandover: undefined // We can add this later if needed
+    latestHandover: storage.getLatestHandoverForPatient(entry.patientId)
   }));
 
   const handleStatusChange = useCallback((entryId: string, newStatus: HaNReviewStatus, completeTodayOnly?: boolean) => {

@@ -1,13 +1,13 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import SBARForm from '@/components/SBARForm';
 import { usePatient, useHandoverNotes } from '@/lib/useData';
+import { useNewHandoverPatientId } from '@/lib/useRouteParams';
 
 export default function NewHandoverClient() {
-  const params = useParams();
   const router = useRouter();
-  const patientId = params.patientId as string;
+  const patientId = useNewHandoverPatientId();
 
   const { patient, loading: patientLoading } = usePatient(patientId);
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes(patientId);

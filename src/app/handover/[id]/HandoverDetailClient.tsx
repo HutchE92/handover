@@ -1,16 +1,16 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SBARDisplay from '@/components/SBARDisplay';
 import { useHandoverNote, usePatient } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 import { useState } from 'react';
+import { useHandoverId } from '@/lib/useRouteParams';
 
 export default function HandoverDetailClient() {
-  const params = useParams();
   const router = useRouter();
-  const handoverId = params.id as string;
+  const handoverId = useHandoverId();
 
   const { note: handover, loading: handoverLoading } = useHandoverNote(handoverId);
   const { patient, loading: patientLoading } = usePatient(handover?.patientId || '');
