@@ -5,6 +5,7 @@ import PatientDetailClient from '@/app/patients/[id]/PatientDetailClient';
 import EditPatientClient from '@/app/patients/[id]/edit/EditPatientClient';
 import HandoverDetailClient from '@/app/handover/[id]/HandoverDetailClient';
 import NewHandoverClient from '@/app/handover/new/[patientId]/NewHandoverClient';
+import { RedirectPathProvider } from '@/lib/RedirectPathContext';
 
 export default function RedirectHandler({ children }: { children?: ReactNode }) {
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
@@ -33,12 +34,16 @@ export default function RedirectHandler({ children }: { children?: ReactNode }) 
   if (redirectPath) {
     const renderedComponent = renderDynamicRoute(redirectPath);
     if (renderedComponent) {
-      return renderedComponent;
+      return (
+        <RedirectPathProvider path={redirectPath}>
+          {renderedComponent}
+        </RedirectPathProvider>
+      );
     }
   }
 
   // No redirect or unknown path - render children normally
-  return <>{children}</>;
+  return <RedirectPathProvider path={null}>{children}</RedirectPathProvider>;
 }
 
 // Function that returns the correct component based on the redirect path
