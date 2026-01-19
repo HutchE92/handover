@@ -37,6 +37,44 @@ export interface PatientWithHandover extends Patient {
 export type ResuscitationStatus = 'Full' | 'DNACPR' | 'Not Discussed';
 export type ShiftType = 'Day' | 'Night' | 'Long Day';
 
+// Hospital at Night types
+export type HaNPriority = 'High' | 'Medium' | 'Low';
+export type HaNReviewRole = 'FY1' | 'SHO' | 'SpR' | 'Discharge' | 'Nurse';
+export type HaNReviewStatus = 'Pending' | 'Complete';
+export type HaNReviewType = 'Scheduled' | 'Ad-hoc';
+
+export interface HaNReviewDate {
+  date: string;
+  completedAt?: string; // ISO date string when this specific date was marked complete
+}
+
+export interface HaNComment {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface HospitalAtNightEntry {
+  id: string;
+  patientId: string;
+  reviewDates: HaNReviewDate[];
+  priority: HaNPriority;
+  assignedRoles: HaNReviewRole[];
+  reasonForReview: string;
+  reviewStatus: HaNReviewStatus;
+  reviewType: HaNReviewType;
+  statusChangedAt: string | null;
+  createdAt: string;
+  createdBy: string;
+  comments: HaNComment[];
+}
+
+export interface HospitalAtNightWithPatient extends HospitalAtNightEntry {
+  patient?: Patient;
+  latestHandover?: HandoverNote;
+}
+
 export function getNewsScoreColor(score: number | null): string {
   if (score === null) return 'bg-gray-100 text-gray-600';
   if (score <= 4) return 'bg-green-100 text-green-800';

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { Patient, HandoverNote } from './types';
+import { Patient, HandoverNote, HospitalAtNightEntry } from './types';
 
 const dbPath = path.join(process.cwd(), 'data', 'handover.db');
 const db = new Database(dbPath);
@@ -47,7 +47,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_patients_active ON patients(isActive);
   CREATE INDEX IF NOT EXISTS idx_handover_patient ON handover_notes(patientId);
   CREATE INDEX IF NOT EXISTS idx_handover_date ON handover_notes(shiftDate);
+
+  CREATE TABLE IF NOT EXISTS hospital_at_night (
+    id TEXT PRIMARY KEY,
+    patientId TEXT NOT NULL,
+    reviewDates TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    assignedRoles TEXT NOT NULL,
+    reasonForReview TEXT NOT NULL,
+    reviewStatus TEXT NOT NULL DEFAULT 'Pending',
+    reviewType TEXT NOT NULL DEFAULT 'Scheduled',
+    statusChangedAt TEXT,
+    createdAt TEXT NOT NULL,
+    createdBy TEXT NOT NULL,
+    comments TEXT NOT NULL DEFAULT '[]',
+    FOREIGN KEY (patientId) REFERENCES patients(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_han_patient ON hospital_at_night(patientId);
+  CREATE INDEX IF NOT EXISTS idx_han_status ON hospital_at_night(reviewStatus);
 `);
+
+// Add comments column if it doesn't exist (migration for existing databases)
+try {
+  db.exec('ALTER TABLE hospital_at_night ADD COLUMN comments TEXT NOT NULL DEFAULT "[]"');
+} catch {
+  // Column already exists
+}
+
+// Add reviewType column if it doesn't exist (migration for existing databases)
+try {
+  db.exec('ALTER TABLE hospital_at_night ADD COLUMN reviewType TEXT NOT NULL DEFAULT "Scheduled"');
+} catch {
+  // Column already exists
+}
 
 // Patient queries
 export function getAllPatients(activeOnly = true): Patient[] {
@@ -225,4 +258,104 @@ export function getPatientsWithLatestHandover(): (Patient & { latestHandover?: H
     ...patient,
     latestHandover: getLatestHandoverForPatient(patient.id)
   }));
+}
+
+// Hospital at Night queries
+interface HaNDbRow {
+  id: string;
+  patientId: string;
+  reviewDates: string;
+  priority: string;
+  assignedRoles: string;
+  reasonForReview: string;
+  reviewStatus: string;
+  reviewType: string;
+  statusChangedAt: string | null;
+  createdAt: string;
+  createdBy: string;
+  comments: string;
+}
+
+function parseHaNEntry(row: HaNDbRow): HospitalAtNightEntry {
+  return {
+    ...row,
+    reviewDates: JSON.parse(row.reviewDates),
+    assignedRoles: JSON.parse(row.assignedRoles),
+    comments: JSON.parse(row.comments || '[]'),
+    priority: row.priority as HospitalAtNightEntry['priority'],
+    reviewStatus: row.reviewStatus as HospitalAtNightEntry['reviewStatus'],
+    reviewType: (row.reviewType || 'Scheduled') as HospitalAtNightEntry['reviewType'],
+  };
+}
+
+export function getAllHospitalAtNightEntries(): HospitalAtNightEntry[] {
+  const stmt = db.prepare('SELECT * FROM hospital_at_night ORDER BY createdAt DESC');
+  const rows = stmt.all() as HaNDbRow[];
+  return rows.map(parseHaNEntry);
+}
+
+export function getHospitalAtNightById(id: string): HospitalAtNightEntry | undefined {
+  const stmt = db.prepare('SELECT * FROM hospital_at_night WHERE id = ?');
+  const row = stmt.get(id) as HaNDbRow | undefined;
+  return row ? parseHaNEntry(row) : undefined;
+}
+
+export function getHospitalAtNightByPatient(patientId: string): HospitalAtNightEntry[] {
+  const stmt = db.prepare('SELECT * FROM hospital_at_night WHERE patientId = ? ORDER BY createdAt DESC');
+  const rows = stmt.all(patientId) as HaNDbRow[];
+  return rows.map(parseHaNEntry);
+}
+
+export function createHospitalAtNightEntry(entry: HospitalAtNightEntry): HospitalAtNightEntry {
+  const stmt = db.prepare(`
+    INSERT INTO hospital_at_night (id, patientId, reviewDates, priority, assignedRoles,
+      reasonForReview, reviewStatus, reviewType, statusChangedAt, createdAt, createdBy, comments)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    entry.id,
+    entry.patientId,
+    JSON.stringify(entry.reviewDates),
+    entry.priority,
+    JSON.stringify(entry.assignedRoles),
+    entry.reasonForReview,
+    entry.reviewStatus,
+    entry.reviewType || 'Scheduled',
+    entry.statusChangedAt,
+    entry.createdAt,
+    entry.createdBy,
+    JSON.stringify(entry.comments || [])
+  );
+  return entry;
+}
+
+export function updateHospitalAtNightEntry(id: string, updates: Partial<HospitalAtNightEntry>): HospitalAtNightEntry | undefined {
+  const current = getHospitalAtNightById(id);
+  if (!current) return undefined;
+
+  const updated = { ...current, ...updates };
+  const stmt = db.prepare(`
+    UPDATE hospital_at_night SET
+      reviewDates = ?, priority = ?, assignedRoles = ?, reasonForReview = ?,
+      reviewStatus = ?, reviewType = ?, statusChangedAt = ?, comments = ?
+    WHERE id = ?
+  `);
+  stmt.run(
+    JSON.stringify(updated.reviewDates),
+    updated.priority,
+    JSON.stringify(updated.assignedRoles),
+    updated.reasonForReview,
+    updated.reviewStatus,
+    updated.reviewType || 'Scheduled',
+    updated.statusChangedAt,
+    JSON.stringify(updated.comments || []),
+    id
+  );
+  return updated;
+}
+
+export function deleteHospitalAtNightEntry(id: string): boolean {
+  const stmt = db.prepare('DELETE FROM hospital_at_night WHERE id = ?');
+  const result = stmt.run(id);
+  return result.changes > 0;
 }

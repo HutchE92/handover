@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Nursing Handover - SBAR Tool",
-  description: "Nursing shift handover tool using the SBAR framework",
+  title: "Hospital Handover - SBAR Tool",
+  description: "Hospital shift handover tool using the SBAR framework",
 };
 
 export default function RootLayout({

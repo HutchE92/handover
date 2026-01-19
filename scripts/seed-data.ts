@@ -219,7 +219,7 @@ function generateAdmissionDate(): string {
   return admissionDate.toISOString().split('T')[0];
 }
 
-function getRandomElement<T>(arr: T[]): T {
+function getRandomElement<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 

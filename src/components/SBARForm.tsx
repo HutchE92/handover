@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Patient, ShiftType } from '@/lib/types';
+import { Patient, ShiftType, HandoverNote } from '@/lib/types';
 
 interface SBARFormProps {
   patient: Patient;
+  previousHandover?: HandoverNote | null;
 }
 
 const SBAR_GUIDANCE = {
@@ -34,20 +35,34 @@ const SBAR_GUIDANCE = {
   ]
 };
 
-export default function SBARForm({ patient }: SBARFormProps) {
+export default function SBARForm({ patient, previousHandover }: SBARFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const getInitialFormData = () => ({
     createdBy: '',
     shiftDate: new Date().toISOString().split('T')[0],
     shiftType: 'Day' as ShiftType,
-    situation: '',
-    background: '',
-    assessment: '',
-    recommendation: '',
+    situation: previousHandover?.situation || '',
+    background: previousHandover?.background || '',
+    assessment: previousHandover?.assessment || '',
+    recommendation: previousHandover?.recommendation || '',
   });
+
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  const handleClearData = () => {
+    setFormData({
+      createdBy: formData.createdBy, // Keep the user's name
+      shiftDate: new Date().toISOString().split('T')[0],
+      shiftType: 'Day' as ShiftType,
+      situation: '',
+      background: '',
+      assessment: '',
+      recommendation: '',
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -101,12 +116,31 @@ export default function SBARForm({ patient }: SBARFormProps) {
       )}
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-medium text-blue-900">
-          Patient: {patient.lastName}, {patient.firstName}
-        </h3>
-        <p className="text-sm text-blue-700">
-          Ward {patient.ward} | Bed {patient.bedNumber} | {patient.diagnosis}
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-medium text-blue-900">
+              Patient: {patient.lastName}, {patient.firstName}
+            </h3>
+            <p className="text-sm text-blue-700">
+              Ward {patient.ward} | Bed {patient.bedNumber} | {patient.diagnosis}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClearData}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-blue-100 rounded-md transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Clear Data
+          </button>
+        </div>
+        {previousHandover && (
+          <p className="text-xs text-blue-600 mt-2">
+            Pre-populated from previous handover ({new Date(previousHandover.createdAt).toLocaleDateString()})
+          </p>
+        )}
       </div>
 
       <div className="bg-white shadow-sm rounded-lg p-6">

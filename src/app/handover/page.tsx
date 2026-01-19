@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge } from '@/lib/types';
+import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType } from '@/lib/types';
+import HospitalAtNightModal from '@/components/HospitalAtNightModal';
+import { v4 as uuidv4 } from 'uuid';
 
 interface HandoverWithPatient extends HandoverNote {
   patient?: Patient;
@@ -15,31 +17,345 @@ interface PatientWithLatestHandover extends Patient {
 const WARDS = Array.from({ length: 20 }, (_, i) => `Ward ${i + 1}`);
 const BEDS_PER_WARD = 28;
 
+// OOH Review Card Modal Component
+function OohReviewModal({
+  entry,
+  patient,
+  isOpen,
+  onClose,
+  onStatusChange,
+  onAddComment
+}: {
+  entry: HospitalAtNightEntry;
+  patient?: Patient;
+  isOpen: boolean;
+  onClose: () => void;
+  onStatusChange: (entryId: string, status: 'Pending' | 'Complete') => void;
+  onAddComment: (entryId: string, comment: HaNComment) => void;
+}) {
+  const [commentText, setCommentText] = useState('');
+  const [commentAuthor, setCommentAuthor] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleAddComment = () => {
+    if (!commentText.trim() || !commentAuthor.trim()) return;
+    const newComment: HaNComment = {
+      id: uuidv4(),
+      text: commentText.trim(),
+      createdBy: commentAuthor.trim(),
+      createdAt: new Date().toISOString()
+    };
+    onAddComment(entry.id, newComment);
+    setCommentText('');
+    setCommentAuthor('');
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'High': return 'bg-red-100 text-red-800 border-red-300';
+      case 'Medium': return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'Low': return 'bg-green-100 text-green-800 border-green-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
+          <h2 className="text-lg font-semibold text-gray-900">OOH Review Details</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Patient Info */}
+          {patient && (
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="font-bold text-gray-900">{patient.lastName}, {patient.firstName}</div>
+              <div className="text-sm text-gray-600">
+                {patient.ward} - Bed {patient.bedNumber} | NHS: {formatNhsNumber(patient.nhsNumber)}
+              </div>
+            </div>
+          )}
+
+          {/* Priority & Status */}
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getPriorityColor(entry.priority)}`}>
+              {entry.priority} Priority
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              entry.reviewStatus === 'Pending'
+                ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                : 'bg-green-100 text-green-800 border border-green-300'
+            }`}>
+              {entry.reviewStatus}
+            </span>
+          </div>
+
+          {/* Assigned Roles */}
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-1">Assigned To</div>
+            <div className="flex flex-wrap gap-1">
+              {entry.assignedRoles.map(role => (
+                <span key={role} className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                  {role}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Review Dates */}
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-1">Review Dates</div>
+            <div className="flex flex-wrap gap-2">
+              {entry.reviewDates.map((rd, idx) => (
+                <span key={idx} className={`px-2 py-1 rounded text-xs font-medium ${
+                  rd.completedAt ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {new Date(rd.date).toLocaleDateString()}
+                  {rd.completedAt && ' ✓'}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Reason for Review */}
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-1">Reason for Review</div>
+            <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg">{entry.reasonForReview}</p>
+          </div>
+
+          {/* Comments Section */}
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-2">Comments ({entry.comments?.length || 0})</div>
+            {entry.comments && entry.comments.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {entry.comments
+                  .slice()
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map(comment => (
+                    <div key={comment.id} className="bg-gray-50 p-2 rounded text-sm">
+                      <div className="text-xs text-gray-500 mb-1">
+                        {new Date(comment.createdAt).toLocaleString()} - {comment.createdBy}
+                      </div>
+                      <div className="text-gray-800">{comment.text}</div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 mb-3">No comments yet</p>
+            )}
+            {/* Add Comment Form */}
+            <div className="space-y-2 border-t pt-3">
+              <input
+                type="text"
+                value={commentAuthor}
+                onChange={(e) => setCommentAuthor(e.target.value)}
+                placeholder="Your name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Add a comment..."
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={handleAddComment}
+                disabled={!commentText.trim() || !commentAuthor.trim()}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Add Comment
+              </button>
+            </div>
+          </div>
+
+          {/* Meta Info */}
+          <div className="text-xs text-gray-500 border-t pt-3">
+            Created by {entry.createdBy} on {new Date(entry.createdAt).toLocaleString()}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2 border-t">
+            {entry.reviewStatus === 'Pending' ? (
+              <button
+                onClick={() => onStatusChange(entry.id, 'Complete')}
+                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+              >
+                Mark Complete
+              </button>
+            ) : (
+              <button
+                onClick={() => onStatusChange(entry.id, 'Pending')}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-md text-sm font-medium hover:bg-yellow-700"
+              >
+                Reopen Review
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HandoverListPage() {
   const [handovers, setHandovers] = useState<HandoverWithPatient[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [oohEntries, setOohEntries] = useState<HospitalAtNightEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedWard, setSelectedWard] = useState<string>('');
+  const [defaultWard, setDefaultWard] = useState<string>('');
   const [filterHighNews, setFilterHighNews] = useState(false);
+  const [hanModalPatient, setHanModalPatient] = useState<PatientWithLatestHandover | null>(null);
+  const [selectedOohEntry, setSelectedOohEntry] = useState<HospitalAtNightEntry | null>(null);
+
+  const handleHaNSubmit = async (data: {
+    reviewDates: HaNReviewDate[];
+    priority: HaNPriority;
+    assignedRoles: HaNReviewRole[];
+    reasonForReview: string;
+    createdBy: string;
+    reviewType: HaNReviewType;
+  }) => {
+    if (!hanModalPatient) return;
+
+    const response = await fetch('/api/hospital-at-night', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patientId: hanModalPatient.id,
+        ...data
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to submit');
+    }
+
+    setHanModalPatient(null);
+    // Refresh OOH entries after creating a new one
+    const oohRes = await fetch('/api/hospital-at-night');
+    if (oohRes.ok) {
+      const oohData = await oohRes.json();
+      setOohEntries((oohData.entries || []).map((e: HospitalAtNightEntry) => ({
+        ...e,
+        comments: e.comments || []
+      })));
+    }
+  };
+
+  // Handle OOH status change
+  const handleOohStatusChange = async (entryId: string, status: 'Pending' | 'Complete') => {
+    try {
+      const response = await fetch(`/api/hospital-at-night/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewStatus: status,
+          statusChangedAt: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setOohEntries(prev => prev.map(e => e.id === entryId ? { ...updated, comments: updated.comments || [] } : e));
+        if (selectedOohEntry?.id === entryId) {
+          setSelectedOohEntry({ ...updated, comments: updated.comments || [] });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
+
+  // Handle adding comment to OOH entry
+  const handleOohAddComment = async (entryId: string, comment: HaNComment) => {
+    const entry = oohEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const updatedComments = [...(entry.comments || []), comment];
+
+    try {
+      const response = await fetch(`/api/hospital-at-night/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comments: updatedComments })
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setOohEntries(prev => prev.map(e => e.id === entryId ? { ...updated, comments: updated.comments || [] } : e));
+        if (selectedOohEntry?.id === entryId) {
+          setSelectedOohEntry({ ...updated, comments: updated.comments || [] });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    }
+  };
+
+  // Helper to get pending OOH entry for a patient
+  const getPendingOohEntry = (patientId: string): HospitalAtNightEntry | undefined => {
+    return oohEntries.find(e => e.patientId === patientId && e.reviewStatus === 'Pending');
+  };
+
+  // Load default ward from localStorage on mount
+  useEffect(() => {
+    const savedDefaultWard = localStorage.getItem('defaultWard');
+    if (savedDefaultWard) {
+      setDefaultWard(savedDefaultWard);
+      setSelectedWard(savedDefaultWard);
+    }
+  }, []);
+
+  // Save default ward to localStorage when it changes
+  const handleSetDefaultWard = (ward: string) => {
+    setDefaultWard(ward);
+    if (ward) {
+      localStorage.setItem('defaultWard', ward);
+      setSelectedWard(ward);
+    } else {
+      localStorage.removeItem('defaultWard');
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [handoversRes, patientsRes] = await Promise.all([
+        const [handoversRes, patientsRes, oohRes] = await Promise.all([
           fetch('/api/handover'),
-          fetch('/api/patients')
+          fetch('/api/patients'),
+          fetch('/api/hospital-at-night')
         ]);
 
-        if (!handoversRes.ok || !patientsRes.ok) {
+        if (!handoversRes.ok || !patientsRes.ok || !oohRes.ok) {
           throw new Error('Failed to fetch data');
         }
 
         const handoversData = await handoversRes.json();
         const patientsData = await patientsRes.json();
+        const oohData = await oohRes.json();
 
         const patientsList: Patient[] = patientsData.patients || [];
         const handoversList: HandoverNote[] = handoversData.handoverNotes || [];
+        const oohList: HospitalAtNightEntry[] = (oohData.entries || []).map((e: HospitalAtNightEntry) => ({
+          ...e,
+          comments: e.comments || []
+        }));
 
         // Merge patient data into handovers
         const handoversWithPatients = handoversList.map(h => ({
@@ -49,6 +365,7 @@ export default function HandoverListPage() {
 
         setHandovers(handoversWithPatients);
         setPatients(patientsList);
+        setOohEntries(oohList);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -105,6 +422,19 @@ export default function HandoverListPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ward Handover</h1>
           <p className="text-gray-500">Select a ward to view patient handover information</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">Default Ward:</label>
+          <select
+            value={defaultWard}
+            onChange={(e) => handleSetDefaultWard(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">None</option>
+            {WARDS.map(ward => (
+              <option key={ward} value={ward}>{ward}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -259,6 +589,18 @@ export default function HandoverListPage() {
                           </span>
                         )}
                       </div>
+                      {/* Active OOH Review Indicator */}
+                      {getPendingOohEntry(patient.id) && (
+                        <button
+                          onClick={() => setSelectedOohEntry(getPendingOohEntry(patient.id)!)}
+                          className="mt-2 flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 border border-purple-300 rounded text-xs font-medium hover:bg-purple-200 transition-colors print:hidden"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                          </svg>
+                          Active OOH Review
+                        </button>
+                      )}
                       <div className="pt-2 flex gap-2 print:hidden">
                         <Link
                           href={`/handover/new/${patient.id}`}
@@ -280,7 +622,7 @@ export default function HandoverListPage() {
                   {patient.latestHandover ? (
                     <>
                       {/* Situation */}
-                      <Link href={`/handover/${patient.latestHandover.id}`} className="p-3 hover:bg-gray-50">
+                      <Link href={`/handover/new/${patient.id}`} className="p-3 hover:bg-blue-50 cursor-pointer transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">S</span>
                           <span className="text-xs font-semibold text-blue-700">Situation</span>
@@ -289,7 +631,7 @@ export default function HandoverListPage() {
                       </Link>
 
                       {/* Background */}
-                      <Link href={`/handover/${patient.latestHandover.id}`} className="p-3 hover:bg-gray-50">
+                      <Link href={`/handover/new/${patient.id}`} className="p-3 hover:bg-green-50 cursor-pointer transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="bg-green-100 text-green-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">B</span>
                           <span className="text-xs font-semibold text-green-700">Background</span>
@@ -298,7 +640,7 @@ export default function HandoverListPage() {
                       </Link>
 
                       {/* Assessment */}
-                      <Link href={`/handover/${patient.latestHandover.id}`} className="p-3 hover:bg-gray-50">
+                      <Link href={`/handover/new/${patient.id}`} className="p-3 hover:bg-amber-50 cursor-pointer transition-colors">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="bg-amber-100 text-amber-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">A</span>
                           <span className="text-xs font-semibold text-amber-700">Assessment</span>
@@ -307,17 +649,31 @@ export default function HandoverListPage() {
                       </Link>
 
                       {/* Recommendation */}
-                      <Link href={`/handover/${patient.latestHandover.id}`} className="p-3 hover:bg-gray-50 flex flex-col">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="bg-red-100 text-red-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">R</span>
-                          <span className="text-xs font-semibold text-red-700">Recommendation</span>
-                        </div>
-                        <p className="text-sm text-gray-700 flex-1">{patient.latestHandover.recommendation}</p>
+                      <div className="p-3 flex flex-col">
+                        <Link href={`/handover/new/${patient.id}`} className="hover:bg-red-50 cursor-pointer transition-colors flex-1 -m-3 p-3 mb-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-red-100 text-red-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">R</span>
+                            <span className="text-xs font-semibold text-red-700">Recommendation</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{patient.latestHandover.recommendation}</p>
+                        </Link>
                         <div className="mt-3 p-2 bg-gray-100 rounded border border-gray-200">
                           <div className="text-xs text-gray-600 font-medium">{patient.latestHandover.createdBy}</div>
                           <div className="text-xs text-gray-500">{patient.latestHandover.shiftType} • {new Date(patient.latestHandover.shiftDate).toLocaleDateString()}</div>
                         </div>
-                      </Link>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setHanModalPatient(patient);
+                          }}
+                          className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded border border-purple-300 text-xs font-medium hover:bg-purple-200 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                          </svg>
+                          Refer to OOH
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <div className="col-span-4 p-4 flex items-center justify-center text-gray-500 text-sm">
@@ -332,6 +688,28 @@ export default function HandoverListPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Hospital at Night Modal */}
+      {hanModalPatient && (
+        <HospitalAtNightModal
+          patient={hanModalPatient}
+          isOpen={true}
+          onClose={() => setHanModalPatient(null)}
+          onSubmit={handleHaNSubmit}
+        />
+      )}
+
+      {/* OOH Review Details Modal */}
+      {selectedOohEntry && (
+        <OohReviewModal
+          entry={selectedOohEntry}
+          patient={patients.find(p => p.id === selectedOohEntry.patientId)}
+          isOpen={true}
+          onClose={() => setSelectedOohEntry(null)}
+          onStatusChange={handleOohStatusChange}
+          onAddComment={handleOohAddComment}
+        />
       )}
     </div>
   );

@@ -82,9 +82,9 @@ export default function HandoverDetailPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
           {error || 'Handover note not found'}
         </div>
-        <Link href="/handover" className="text-blue-600 hover:text-blue-700">
-          ← Back to Handovers
-        </Link>
+        <button onClick={() => router.back()} className="text-blue-600 hover:text-blue-700">
+          ← Back
+        </button>
       </div>
     );
   }
@@ -93,12 +93,12 @@ export default function HandoverDetailPage() {
     <div className="space-y-6">
       {/* Header - hidden when printing */}
       <div className="print:hidden flex items-center gap-4">
-        <Link
-          href="/handover"
+        <button
+          onClick={() => router.back()}
           className="text-gray-500 hover:text-gray-700"
         >
-          ← Back to Handovers
-        </Link>
+          ← Back
+        </button>
         {patient && (
           <>
             <span className="text-gray-300">|</span>

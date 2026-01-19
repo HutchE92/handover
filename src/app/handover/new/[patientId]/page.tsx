@@ -1,29 +1,49 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import SBARForm from '@/components/SBARForm';
-import { Patient } from '@/lib/types';
+import { Patient, HandoverNote } from '@/lib/types';
 
 export default function NewHandoverPage() {
   const params = useParams();
+  const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [previousHandover, setPreviousHandover] = useState<HandoverNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchPatient() {
+    async function fetchData() {
       try {
-        const res = await fetch(`/api/patients/${params.patientId}`);
-        if (!res.ok) throw new Error('Patient not found');
-        const data = await res.json();
+        // Fetch patient and handovers in parallel
+        const [patientRes, handoversRes] = await Promise.all([
+          fetch(`/api/patients/${params.patientId}`),
+          fetch('/api/handover')
+        ]);
 
-        if (!data.isActive) {
+        if (!patientRes.ok) throw new Error('Patient not found');
+        const patientData = await patientRes.json();
+
+        if (!patientData.isActive) {
           throw new Error('Cannot create handover for discharged patient');
         }
 
-        setPatient(data);
+        setPatient(patientData);
+
+        // Find the most recent handover for this patient
+        if (handoversRes.ok) {
+          const handoversData = await handoversRes.json();
+          const patientHandovers = (handoversData.handoverNotes || [])
+            .filter((h: HandoverNote) => h.patientId === params.patientId)
+            .sort((a: HandoverNote, b: HandoverNote) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+          if (patientHandovers.length > 0) {
+            setPreviousHandover(patientHandovers[0]);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -32,7 +52,7 @@ export default function NewHandoverPage() {
     }
 
     if (params.patientId) {
-      fetchPatient();
+      fetchData();
     }
   }, [params.patientId]);
 
@@ -50,9 +70,9 @@ export default function NewHandoverPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
           {error || 'Patient not found'}
         </div>
-        <Link href="/patients" className="text-blue-600 hover:text-blue-700">
-          ← Back to Patients
-        </Link>
+        <button onClick={() => router.back()} className="text-blue-600 hover:text-blue-700">
+          ← Back
+        </button>
       </div>
     );
   }
@@ -61,12 +81,12 @@ export default function NewHandoverPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link
-          href={`/patients/${patient.id}`}
+        <button
+          onClick={() => router.back()}
           className="text-gray-500 hover:text-gray-700"
         >
-          ← Back to Patient
-        </Link>
+          ← Back
+        </button>
       </div>
 
       <div>
@@ -74,7 +94,7 @@ export default function NewHandoverPage() {
         <p className="text-gray-500">Document SBAR handover for this patient</p>
       </div>
 
-      <SBARForm patient={patient} />
+      <SBARForm patient={patient} previousHandover={previousHandover} />
     </div>
   );
 }
