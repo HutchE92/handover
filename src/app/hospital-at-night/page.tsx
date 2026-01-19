@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -13,8 +13,11 @@ import {
   HaNReviewType,
   formatNhsNumber,
   calculateAge,
-  getNewsScoreColor
+  getNewsScoreColor,
+  HospitalAtNightEntry
 } from '@/lib/types';
+import { usePatients, useHospitalAtNight } from '@/lib/useData';
+import * as storage from '@/lib/localStorage';
 
 type TabType = 'dashboard' | 'patients';
 type SortOption = 'priority' | 'oldest' | 'newest';
@@ -231,8 +234,9 @@ function ViewAllCommentsModal({ isOpen, comments, onClose }: ViewAllCommentsModa
 }
 
 export default function HospitalAtNightPage() {
-  const [entries, setEntries] = useState<HospitalAtNightWithPatient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { patients, loading: patientsLoading } = usePatients(true);
+  const { entries: rawEntries, loading: entriesLoading, refresh: refreshEntries } = useHospitalAtNight();
+
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Filters
@@ -247,93 +251,64 @@ export default function HospitalAtNightPage() {
   // Toggle states for showing handovers
   const [expandedHandovers, setExpandedHandovers] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchEntries();
-  }, []);
+  const loading = patientsLoading || entriesLoading;
 
-  const fetchEntries = async () => {
-    try {
-      const res = await fetch('/api/hospital-at-night');
-      if (res.ok) {
-        const data = await res.json();
-        setEntries(data.entries || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch entries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Merge patient data into entries
+  const entries: HospitalAtNightWithPatient[] = rawEntries.map(entry => ({
+    ...entry,
+    patient: patients.find(p => p.id === entry.patientId),
+    latestHandover: undefined // We can add this later if needed
+  }));
 
-  const handleStatusChange = async (entryId: string, newStatus: HaNReviewStatus, completeTodayOnly?: boolean) => {
-    try {
-      const entry = entries.find(e => e.id === entryId);
-      if (!entry) return;
+  const handleStatusChange = useCallback((entryId: string, newStatus: HaNReviewStatus, completeTodayOnly?: boolean) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
 
-      let updatedReviewDates = entry.reviewDates;
-      let finalStatus = newStatus;
+    let updatedReviewDates = entry.reviewDates;
+    let finalStatus = newStatus;
 
-      if (newStatus === 'Complete' && completeTodayOnly) {
-        // Mark only today's (or earliest incomplete) date as complete
-        const today = new Date().toISOString().split('T')[0];
-        const now = new Date().toISOString();
+    if (newStatus === 'Complete' && completeTodayOnly) {
+      // Mark only today's (or earliest incomplete) date as complete
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
 
-        updatedReviewDates = entry.reviewDates.map(rd => {
-          if (rd.date <= today && !rd.completedAt) {
-            return { ...rd, completedAt: now };
-          }
-          return rd;
-        });
-
-        // Check if there are still pending dates
-        const hasPendingDates = updatedReviewDates.some(rd => !rd.completedAt);
-        finalStatus = hasPendingDates ? 'Pending' : 'Complete';
-      } else if (newStatus === 'Complete') {
-        // Mark all dates as complete
-        const now = new Date().toISOString();
-        updatedReviewDates = entry.reviewDates.map(rd => ({
-          ...rd,
-          completedAt: rd.completedAt || now
-        }));
-      } else {
-        // Revert to pending - clear all completedAt
-        updatedReviewDates = entry.reviewDates.map(rd => ({
-          ...rd,
-          completedAt: undefined
-        }));
-      }
-
-      const res = await fetch(`/api/hospital-at-night/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reviewStatus: finalStatus,
-          reviewDates: updatedReviewDates,
-          statusChangedAt: finalStatus === 'Complete' ? new Date().toISOString() : null
-        })
+      updatedReviewDates = entry.reviewDates.map(rd => {
+        if (rd.date <= today && !rd.completedAt) {
+          return { ...rd, completedAt: now };
+        }
+        return rd;
       });
-      if (res.ok) {
-        fetchEntries();
-      }
-    } catch (error) {
-      console.error('Failed to update status:', error);
-    }
-  };
 
-  const handleReassign = async (entryId: string, newRoles: HaNReviewRole[]) => {
-    try {
-      const res = await fetch(`/api/hospital-at-night/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedRoles: newRoles })
-      });
-      if (res.ok) {
-        fetchEntries();
-      }
-    } catch (error) {
-      console.error('Failed to reassign:', error);
+      // Check if there are still pending dates
+      const hasPendingDates = updatedReviewDates.some(rd => !rd.completedAt);
+      finalStatus = hasPendingDates ? 'Pending' : 'Complete';
+    } else if (newStatus === 'Complete') {
+      // Mark all dates as complete
+      const now = new Date().toISOString();
+      updatedReviewDates = entry.reviewDates.map(rd => ({
+        ...rd,
+        completedAt: rd.completedAt || now
+      }));
+    } else {
+      // Revert to pending - clear all completedAt
+      updatedReviewDates = entry.reviewDates.map(rd => ({
+        ...rd,
+        completedAt: undefined
+      }));
     }
-  };
+
+    storage.updateHospitalAtNightEntry(entryId, {
+      reviewStatus: finalStatus,
+      reviewDates: updatedReviewDates,
+      statusChangedAt: finalStatus === 'Complete' ? new Date().toISOString() : null
+    });
+    refreshEntries();
+  }, [entries, refreshEntries]);
+
+  const handleReassign = useCallback((entryId: string, newRoles: HaNReviewRole[]) => {
+    storage.updateHospitalAtNightEntry(entryId, { assignedRoles: newRoles });
+    refreshEntries();
+  }, [refreshEntries]);
 
   const toggleHandover = (entryId: string) => {
     const newExpanded = new Set(expandedHandovers);
@@ -345,32 +320,21 @@ export default function HospitalAtNightPage() {
     setExpandedHandovers(newExpanded);
   };
 
-  const handleAddComment = async (entryId: string, comment: { text: string; createdBy: string }) => {
-    try {
-      const entry = entries.find(e => e.id === entryId);
-      if (!entry) return;
+  const handleAddComment = useCallback((entryId: string, comment: { text: string; createdBy: string }) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
 
-      const newComment: HaNComment = {
-        id: uuidv4(),
-        text: comment.text,
-        createdBy: comment.createdBy,
-        createdAt: new Date().toISOString()
-      };
+    const newComment: HaNComment = {
+      id: uuidv4(),
+      text: comment.text,
+      createdBy: comment.createdBy,
+      createdAt: new Date().toISOString()
+    };
 
-      const updatedComments = [...(entry.comments || []), newComment];
-
-      const res = await fetch(`/api/hospital-at-night/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comments: updatedComments })
-      });
-      if (res.ok) {
-        fetchEntries();
-      }
-    } catch (error) {
-      console.error('Failed to add comment:', error);
-    }
-  };
+    const updatedComments = [...(entry.comments || []), newComment];
+    storage.updateHospitalAtNightEntry(entryId, { comments: updatedComments });
+    refreshEntries();
+  }, [entries, refreshEntries]);
 
   // Get unique wards from entries - sort numerically
   const availableWards = [...new Set(entries.map(e => e.patient?.ward).filter(Boolean))]

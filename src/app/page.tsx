@@ -4,75 +4,47 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import PatientCard from '@/components/PatientCard';
 import { Patient, HandoverNote, getNewsScoreColor } from '@/lib/types';
-
-interface DashboardData {
-  patients: Patient[];
-  recentHandovers: (HandoverNote & { patient?: Patient })[];
-  stats: {
-    totalPatients: number;
-    highNewsCount: number;
-    todayHandovers: number;
-    wards: string[];
-  };
-}
+import { usePatients, useHandoverNotes } from '@/lib/useData';
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { patients, loading: patientsLoading } = usePatients(true);
+  const { notes: handovers, loading: handoversLoading } = useHandoverNotes();
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    highNewsCount: 0,
+    todayHandovers: 0,
+    wards: [] as string[]
+  });
+  const [recentHandovers, setRecentHandovers] = useState<(HandoverNote & { patient?: Patient })[]>([]);
 
   useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        const [patientsRes, handoversRes] = await Promise.all([
-          fetch('/api/patients'),
-          fetch('/api/handover')
-        ]);
+    if (!patientsLoading && !handoversLoading) {
+      const today = new Date().toISOString().split('T')[0];
+      const highNewsCount = patients.filter(p => p.earlyWarningScore !== null && p.earlyWarningScore >= 5).length;
+      const todayHandovers = handovers.filter(h => h.shiftDate === today).length;
+      const wards = [...new Set(patients.map(p => p.ward))];
 
-        if (!patientsRes.ok || !handoversRes.ok) {
-          throw new Error('Failed to fetch data');
-        }
+      setStats({
+        totalPatients: patients.length,
+        highNewsCount,
+        todayHandovers,
+        wards
+      });
 
-        const patientsData = await patientsRes.json();
-        const handoversData = await handoversRes.json();
+      // Get recent handovers with patient info
+      const recent = handovers
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5)
+        .map(h => ({
+          ...h,
+          patient: patients.find(p => p.id === h.patientId)
+        }));
 
-        const patients: Patient[] = patientsData.patients || [];
-        const handovers: HandoverNote[] = handoversData.handoverNotes || [];
-
-        // Calculate stats
-        const today = new Date().toISOString().split('T')[0];
-        const highNewsCount = patients.filter(p => p.earlyWarningScore !== null && p.earlyWarningScore >= 5).length;
-        const todayHandovers = handovers.filter(h => h.shiftDate === today).length;
-        const wards = [...new Set(patients.map(p => p.ward))];
-
-        // Get recent handovers with patient info
-        const recentHandovers = handovers
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 5)
-          .map(h => ({
-            ...h,
-            patient: patients.find(p => p.id === h.patientId)
-          }));
-
-        setData({
-          patients,
-          recentHandovers,
-          stats: {
-            totalPatients: patients.length,
-            highNewsCount,
-            todayHandovers,
-            wards
-          }
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
+      setRecentHandovers(recent);
     }
+  }, [patients, handovers, patientsLoading, handoversLoading]);
 
-    fetchDashboardData();
-  }, []);
+  const loading = patientsLoading || handoversLoading;
 
   if (loading) {
     return (
@@ -81,18 +53,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const { patients, recentHandovers, stats } = data;
 
   // Get patients with high NEWS scores (priority patients)
   const priorityPatients = patients
@@ -106,6 +66,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold mb-2">Nursing Handover Dashboard</h1>
         <p className="text-blue-100">
           SBAR-based shift handover management system
+        </p>
+        <p className="text-blue-200 text-sm mt-2">
+          Demo mode - Data stored in browser localStorage
         </p>
       </div>
 

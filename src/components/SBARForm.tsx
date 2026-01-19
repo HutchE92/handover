@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import { Patient, ShiftType, HandoverNote } from '@/lib/types';
+import * as storage from '@/lib/localStorage';
 
 interface SBARFormProps {
   patient: Patient;
@@ -76,25 +78,23 @@ export default function SBARForm({ patient, previousHandover }: SBARFormProps) {
     setError(null);
 
     try {
-      const response = await fetch('/api/handover', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          patientId: patient.id,
-        }),
-      });
+      const newNote: HandoverNote = {
+        id: uuidv4(),
+        patientId: patient.id,
+        createdBy: formData.createdBy,
+        createdAt: new Date().toISOString(),
+        shiftDate: formData.shiftDate,
+        shiftType: formData.shiftType,
+        situation: formData.situation,
+        background: formData.background,
+        assessment: formData.assessment,
+        recommendation: formData.recommendation,
+      };
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create handover note');
-      }
-
-      const savedNote = await response.json();
-      router.push(`/handover/${savedNote.id}`);
+      storage.createHandoverNote(newNote);
+      router.push(`/handover/${newNote.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setLoading(false);
     }
   };

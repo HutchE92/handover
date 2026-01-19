@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import { Patient, ResuscitationStatus, validateNhsNumber } from '@/lib/types';
+import * as storage from '@/lib/localStorage';
 
 interface PatientFormProps {
   patient?: Patient;
@@ -69,30 +71,50 @@ export default function PatientForm({ patient, mode }: PatientFormProps) {
     }
 
     try {
-      const payload = {
-        ...formData,
-        earlyWarningScore: formData.earlyWarningScore ? parseInt(formData.earlyWarningScore, 10) : null,
-      };
+      const now = new Date().toISOString();
 
-      const url = mode === 'create' ? '/api/patients' : `/api/patients/${patient?.id}`;
-      const method = mode === 'create' ? 'POST' : 'PUT';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save patient');
+      if (mode === 'create') {
+        const newPatient: Patient = {
+          id: uuidv4(),
+          nhsNumber: formData.nhsNumber,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          dateOfBirth: formData.dateOfBirth,
+          ward: formData.ward,
+          bedNumber: formData.bedNumber,
+          consultant: formData.consultant,
+          admissionDate: formData.admissionDate,
+          diagnosis: formData.diagnosis,
+          allergies: formData.allergies,
+          resuscitationStatus: formData.resuscitationStatus,
+          earlyWarningScore: formData.earlyWarningScore ? parseInt(formData.earlyWarningScore, 10) : null,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now
+        };
+        storage.createPatient(newPatient);
+        router.push(`/patients/${newPatient.id}`);
+      } else if (patient) {
+        const updatedPatient = storage.updatePatient(patient.id, {
+          nhsNumber: formData.nhsNumber,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          dateOfBirth: formData.dateOfBirth,
+          ward: formData.ward,
+          bedNumber: formData.bedNumber,
+          consultant: formData.consultant,
+          admissionDate: formData.admissionDate,
+          diagnosis: formData.diagnosis,
+          allergies: formData.allergies,
+          resuscitationStatus: formData.resuscitationStatus,
+          earlyWarningScore: formData.earlyWarningScore ? parseInt(formData.earlyWarningScore, 10) : null,
+        });
+        if (updatedPatient) {
+          router.push(`/patients/${updatedPatient.id}`);
+        }
       }
-
-      const savedPatient = await response.json();
-      router.push(`/patients/${savedPatient.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setLoading(false);
     }
   };

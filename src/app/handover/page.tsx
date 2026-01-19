@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType } from '@/lib/types';
 import HospitalAtNightModal from '@/components/HospitalAtNightModal';
 import { v4 as uuidv4 } from 'uuid';
+import { usePatients, useHandoverNotes, useHospitalAtNight } from '@/lib/useData';
+import * as storage from '@/lib/localStorage';
 
 interface HandoverWithPatient extends HandoverNote {
   patient?: Patient;
@@ -212,16 +214,17 @@ function OohReviewModal({
 }
 
 export default function HandoverListPage() {
-  const [handovers, setHandovers] = useState<HandoverWithPatient[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [oohEntries, setOohEntries] = useState<HospitalAtNightEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { patients, loading: patientsLoading } = usePatients(true);
+  const { notes: handovers, loading: handoversLoading } = useHandoverNotes();
+  const { entries: oohEntries, loading: oohLoading, refresh: refreshOoh } = useHospitalAtNight();
+
   const [selectedWard, setSelectedWard] = useState<string>('');
   const [defaultWard, setDefaultWard] = useState<string>('');
   const [filterHighNews, setFilterHighNews] = useState(false);
   const [hanModalPatient, setHanModalPatient] = useState<PatientWithLatestHandover | null>(null);
   const [selectedOohEntry, setSelectedOohEntry] = useState<HospitalAtNightEntry | null>(null);
+
+  const loading = patientsLoading || handoversLoading || oohLoading;
 
   const handleHaNSubmit = async (data: {
     reviewDates: HaNReviewDate[];
@@ -233,78 +236,50 @@ export default function HandoverListPage() {
   }) => {
     if (!hanModalPatient) return;
 
-    const response = await fetch('/api/hospital-at-night', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        patientId: hanModalPatient.id,
-        ...data
-      })
-    });
+    const newEntry: HospitalAtNightEntry = {
+      id: uuidv4(),
+      patientId: hanModalPatient.id,
+      reviewDates: data.reviewDates,
+      priority: data.priority,
+      assignedRoles: data.assignedRoles,
+      reasonForReview: data.reasonForReview,
+      reviewStatus: 'Pending',
+      reviewType: data.reviewType,
+      statusChangedAt: null,
+      createdAt: new Date().toISOString(),
+      createdBy: data.createdBy,
+      comments: []
+    };
 
-    if (!response.ok) {
-      throw new Error('Failed to submit');
-    }
-
+    storage.createHospitalAtNightEntry(newEntry);
     setHanModalPatient(null);
-    // Refresh OOH entries after creating a new one
-    const oohRes = await fetch('/api/hospital-at-night');
-    if (oohRes.ok) {
-      const oohData = await oohRes.json();
-      setOohEntries((oohData.entries || []).map((e: HospitalAtNightEntry) => ({
-        ...e,
-        comments: e.comments || []
-      })));
-    }
+    refreshOoh();
   };
 
   // Handle OOH status change
-  const handleOohStatusChange = async (entryId: string, status: 'Pending' | 'Complete') => {
-    try {
-      const response = await fetch(`/api/hospital-at-night/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reviewStatus: status,
-          statusChangedAt: new Date().toISOString()
-        })
-      });
-
-      if (response.ok) {
-        const updated = await response.json();
-        setOohEntries(prev => prev.map(e => e.id === entryId ? { ...updated, comments: updated.comments || [] } : e));
-        if (selectedOohEntry?.id === entryId) {
-          setSelectedOohEntry({ ...updated, comments: updated.comments || [] });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update status:', err);
+  const handleOohStatusChange = (entryId: string, status: 'Pending' | 'Complete') => {
+    storage.updateHospitalAtNightEntry(entryId, {
+      reviewStatus: status,
+      statusChangedAt: new Date().toISOString()
+    });
+    refreshOoh();
+    if (selectedOohEntry?.id === entryId) {
+      const updated = storage.getHospitalAtNightById(entryId);
+      if (updated) setSelectedOohEntry(updated);
     }
   };
 
   // Handle adding comment to OOH entry
-  const handleOohAddComment = async (entryId: string, comment: HaNComment) => {
+  const handleOohAddComment = (entryId: string, comment: HaNComment) => {
     const entry = oohEntries.find(e => e.id === entryId);
     if (!entry) return;
 
     const updatedComments = [...(entry.comments || []), comment];
-
-    try {
-      const response = await fetch(`/api/hospital-at-night/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comments: updatedComments })
-      });
-
-      if (response.ok) {
-        const updated = await response.json();
-        setOohEntries(prev => prev.map(e => e.id === entryId ? { ...updated, comments: updated.comments || [] } : e));
-        if (selectedOohEntry?.id === entryId) {
-          setSelectedOohEntry({ ...updated, comments: updated.comments || [] });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to add comment:', err);
+    storage.updateHospitalAtNightEntry(entryId, { comments: updatedComments });
+    refreshOoh();
+    if (selectedOohEntry?.id === entryId) {
+      const updated = storage.getHospitalAtNightById(entryId);
+      if (updated) setSelectedOohEntry(updated);
     }
   };
 
@@ -333,54 +308,17 @@ export default function HandoverListPage() {
     }
   };
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [handoversRes, patientsRes, oohRes] = await Promise.all([
-          fetch('/api/handover'),
-          fetch('/api/patients'),
-          fetch('/api/hospital-at-night')
-        ]);
-
-        if (!handoversRes.ok || !patientsRes.ok || !oohRes.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const handoversData = await handoversRes.json();
-        const patientsData = await patientsRes.json();
-        const oohData = await oohRes.json();
-
-        const patientsList: Patient[] = patientsData.patients || [];
-        const handoversList: HandoverNote[] = handoversData.handoverNotes || [];
-        const oohList: HospitalAtNightEntry[] = (oohData.entries || []).map((e: HospitalAtNightEntry) => ({
-          ...e,
-          comments: e.comments || []
-        }));
-
-        // Merge patient data into handovers
-        const handoversWithPatients = handoversList.map(h => ({
-          ...h,
-          patient: patientsList.find(p => p.id === h.patientId)
-        }));
-
-        setHandovers(handoversWithPatients);
-        setPatients(patientsList);
-        setOohEntries(oohList);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
+  // Merge patient data into handovers
+  const handoversWithPatients: HandoverWithPatient[] = handovers.map(h => ({
+    ...h,
+    patient: patients.find(p => p.id === h.patientId)
+  }));
 
   // Get patients for selected ward with their latest handover
   const wardPatients: PatientWithLatestHandover[] = patients
     .filter(p => p.ward === selectedWard && p.isActive)
     .map(patient => {
-      const patientHandovers = handovers
+      const patientHandovers = handoversWithPatients
         .filter(h => h.patientId === patient.id)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       return {
@@ -403,14 +341,6 @@ export default function HandoverListPage() {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <div className="text-gray-500">Loading handovers...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        Error: {error}
       </div>
     );
   }

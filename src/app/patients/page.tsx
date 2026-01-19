@@ -1,60 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import PatientCard from '@/components/PatientCard';
-import { Patient } from '@/lib/types';
+import { usePatients, useWards } from '@/lib/useData';
 
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [wards, setWards] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
+  const { patients, loading } = usePatients(!showInactive);
+  const { wards } = useWards();
   const [selectedWard, setSelectedWard] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [showInactive, setShowInactive] = useState(false);
 
-  useEffect(() => {
-    async function fetchPatients() {
-      try {
-        const url = showInactive ? '/api/patients?includeInactive=true' : '/api/patients';
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Failed to fetch patients');
-        const data = await res.json();
-        setPatients(data.patients || []);
-        setWards(data.wards || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchPatients();
-  }, [showInactive]);
-
-  const filteredPatients = patients.filter(patient => {
-    const matchesWard = selectedWard === 'all' || patient.ward === selectedWard;
-    const matchesSearch = searchTerm === '' ||
-      patient.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.nhsNumber.includes(searchTerm) ||
-      patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesWard && matchesSearch;
-  });
+  const filteredPatients = useMemo(() => {
+    return patients.filter(patient => {
+      const matchesWard = selectedWard === 'all' || patient.ward === selectedWard;
+      const matchesSearch = searchTerm === '' ||
+        patient.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.nhsNumber.includes(searchTerm) ||
+        patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesWard && matchesSearch;
+    });
+  }, [patients, selectedWard, searchTerm]);
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <div className="text-gray-500">Loading patients...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        Error: {error}
       </div>
     );
   }
