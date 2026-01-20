@@ -499,13 +499,18 @@ export default function HospitalAtNightPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Reviews by Role</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {ROLES.map(role => (
-                <div
+                <button
                   key={role}
-                  className="bg-purple-50 rounded-lg p-4 text-center border border-purple-100"
+                  onClick={() => {
+                    setRoleFilter([role]);
+                    setStatusFilter(['Pending']);
+                    setActiveTab('patients');
+                  }}
+                  className="bg-purple-50 rounded-lg p-4 text-center border border-purple-100 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
                 >
                   <div className="text-2xl font-bold text-purple-700">{stats.byRole[role]}</div>
                   <div className="text-sm text-purple-600">{role}</div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
