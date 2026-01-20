@@ -233,6 +233,63 @@ function ViewAllCommentsModal({ isOpen, comments, onClose }: ViewAllCommentsModa
   );
 }
 
+// High Priority Patient Popup Modal
+interface HighPriorityPatientModalProps {
+  entry: HospitalAtNightWithPatient | null;
+  onClose: () => void;
+  onStatusChange: (entryId: string, status: HaNReviewStatus, completeTodayOnly?: boolean) => void;
+  onReassign: (entryId: string, roles: HaNReviewRole[]) => void;
+  onAddComment: (entryId: string, comment: { text: string; createdBy: string }) => void;
+}
+
+function HighPriorityPatientModal({
+  entry,
+  onClose,
+  onStatusChange,
+  onReassign,
+  onAddComment
+}: HighPriorityPatientModalProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!entry) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+        <div className="relative bg-gray-100 rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-red-600 text-white px-4 py-3 rounded-t-lg flex justify-between items-center z-10">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="font-semibold">High Priority Patient</span>
+            </div>
+            <button onClick={onClose} className="text-white hover:text-red-200">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Patient Card Content */}
+          <div className="p-4">
+            <PatientCard
+              entry={entry}
+              isExpanded={isExpanded}
+              onToggleHandover={() => setIsExpanded(!isExpanded)}
+              onStatusChange={onStatusChange}
+              onReassign={onReassign}
+              onAddComment={(comment) => onAddComment(entry.id, comment)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HospitalAtNightPage() {
   const { patients, loading: patientsLoading } = usePatients(true);
   const { entries: rawEntries, loading: entriesLoading, refresh: refreshEntries } = useHospitalAtNight();
@@ -250,6 +307,9 @@ export default function HospitalAtNightPage() {
 
   // Toggle states for showing handovers
   const [expandedHandovers, setExpandedHandovers] = useState<Set<string>>(new Set());
+
+  // High priority patient popup state
+  const [selectedHighPriorityEntry, setSelectedHighPriorityEntry] = useState<HospitalAtNightWithPatient | null>(null);
 
   const loading = patientsLoading || entriesLoading;
 
@@ -422,6 +482,15 @@ export default function HospitalAtNightPage() {
 
   return (
     <div className="space-y-6">
+      {/* High Priority Patient Modal */}
+      <HighPriorityPatientModal
+        entry={selectedHighPriorityEntry}
+        onClose={() => setSelectedHighPriorityEntry(null)}
+        onStatusChange={handleStatusChange}
+        onReassign={handleReassign}
+        onAddComment={handleAddComment}
+      />
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -525,9 +594,10 @@ export default function HospitalAtNightPage() {
                 {entries
                   .filter(e => e.priority === 'High' && e.reviewStatus === 'Pending')
                   .map(entry => (
-                    <div
+                    <button
                       key={entry.id}
-                      className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100"
+                      onClick={() => setSelectedHighPriorityEntry(entry)}
+                      className="w-full flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 hover:border-red-200 transition-colors cursor-pointer text-left"
                     >
                       <div>
                         <span className="font-medium text-gray-900">
@@ -544,8 +614,11 @@ export default function HospitalAtNightPage() {
                         <span className="text-sm text-gray-500">
                           {entry.assignedRoles.join(', ')}
                         </span>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </div>
-                    </div>
+                    </button>
                   ))}
               </div>
             )}
@@ -932,7 +1005,7 @@ function PatientCard({
                   {entry.priority}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600 mb-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-gray-600 mb-3">
                 <div>
                   <span className="text-gray-400">Ward:</span> {entry.patient?.ward}
                 </div>
@@ -944,6 +1017,16 @@ function PatientCard({
                 </div>
                 <div>
                   <span className="text-gray-400">Age:</span> {entry.patient ? calculateAge(entry.patient.dateOfBirth) : '-'}
+                </div>
+                <div>
+                  <span className="text-gray-400">NEWS:</span>{' '}
+                  {entry.patient?.earlyWarningScore !== null && entry.patient?.earlyWarningScore !== undefined ? (
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getNewsScoreColor(entry.patient.earlyWarningScore)}`}>
+                      {entry.patient.earlyWarningScore}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
                 </div>
               </div>
 
