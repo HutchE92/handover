@@ -99,6 +99,14 @@ function OohReviewModal({
             </span>
           </div>
 
+          {/* Specialty */}
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-1">Specialty</div>
+            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+              {entry.specialty}
+            </span>
+          </div>
+
           {/* Assigned Roles */}
           <div>
             <div className="text-sm font-medium text-gray-700 mb-1">Assigned To</div>
