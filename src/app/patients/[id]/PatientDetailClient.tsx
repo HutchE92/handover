@@ -415,6 +415,10 @@ function OohEntryCard({ entry }: OohEntryCardProps) {
 
           <div className="bg-gray-50 rounded-lg p-3 space-y-2">
             <div>
+              <span className="text-gray-400">Specialty:</span>{' '}
+              <span className="font-medium">{entry.specialty}</span>
+            </div>
+            <div>
               <span className="text-gray-400">Assigned to:</span>{' '}
               <span className="font-medium">{entry.assignedRoles.join(', ')}</span>
             </div>
