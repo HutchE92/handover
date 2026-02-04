@@ -633,6 +633,11 @@ export default function HospitalAtNightPage() {
                   onClick={() => {
                     setRoleFilter([role]);
                     setStatusFilter(['Pending']);
+                    if (dashboardSpecialtyFilter.length === 1) {
+                      setSpecialtyFilter(dashboardSpecialtyFilter[0]);
+                    } else {
+                      setSpecialtyFilter(null);
+                    }
                     setActiveTab('patients');
                   }}
                   className="bg-purple-50 rounded-lg p-4 text-center border border-purple-100 hover:bg-purple-100 hover:border-purple-300 transition-colors cursor-pointer"
