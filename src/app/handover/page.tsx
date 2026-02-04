@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType } from '@/lib/types';
+import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType, HaNSpecialty } from '@/lib/types';
 import HospitalAtNightModal from '@/components/HospitalAtNightModal';
 import { v4 as uuidv4 } from 'uuid';
 import { usePatients, useHandoverNotes, useHospitalAtNight } from '@/lib/useData';
@@ -233,6 +233,7 @@ export default function HandoverListPage() {
     reasonForReview: string;
     createdBy: string;
     reviewType: HaNReviewType;
+    specialty: HaNSpecialty;
   }) => {
     if (!hanModalPatient) return;
 
@@ -245,6 +246,7 @@ export default function HandoverListPage() {
       reasonForReview: data.reasonForReview,
       reviewStatus: 'Pending',
       reviewType: data.reviewType,
+      specialty: data.specialty,
       statusChangedAt: null,
       createdAt: new Date().toISOString(),
       createdBy: data.createdBy,

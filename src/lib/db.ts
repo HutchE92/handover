@@ -82,6 +82,13 @@ try {
   // Column already exists
 }
 
+// Add specialty column if it doesn't exist (migration for existing databases)
+try {
+  db.exec('ALTER TABLE hospital_at_night ADD COLUMN specialty TEXT NOT NULL DEFAULT "Medicine"');
+} catch {
+  // Column already exists
+}
+
 // Patient queries
 export function getAllPatients(activeOnly = true): Patient[] {
   const stmt = activeOnly
@@ -270,6 +277,7 @@ interface HaNDbRow {
   reasonForReview: string;
   reviewStatus: string;
   reviewType: string;
+  specialty: string;
   statusChangedAt: string | null;
   createdAt: string;
   createdBy: string;
@@ -285,6 +293,7 @@ function parseHaNEntry(row: HaNDbRow): HospitalAtNightEntry {
     priority: row.priority as HospitalAtNightEntry['priority'],
     reviewStatus: row.reviewStatus as HospitalAtNightEntry['reviewStatus'],
     reviewType: (row.reviewType || 'Scheduled') as HospitalAtNightEntry['reviewType'],
+    specialty: (row.specialty || 'Medicine') as HospitalAtNightEntry['specialty'],
   };
 }
 
@@ -309,8 +318,8 @@ export function getHospitalAtNightByPatient(patientId: string): HospitalAtNightE
 export function createHospitalAtNightEntry(entry: HospitalAtNightEntry): HospitalAtNightEntry {
   const stmt = db.prepare(`
     INSERT INTO hospital_at_night (id, patientId, reviewDates, priority, assignedRoles,
-      reasonForReview, reviewStatus, reviewType, statusChangedAt, createdAt, createdBy, comments)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      reasonForReview, reviewStatus, reviewType, specialty, statusChangedAt, createdAt, createdBy, comments)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     entry.id,
@@ -321,6 +330,7 @@ export function createHospitalAtNightEntry(entry: HospitalAtNightEntry): Hospita
     entry.reasonForReview,
     entry.reviewStatus,
     entry.reviewType || 'Scheduled',
+    entry.specialty || 'Medicine',
     entry.statusChangedAt,
     entry.createdAt,
     entry.createdBy,
@@ -337,7 +347,7 @@ export function updateHospitalAtNightEntry(id: string, updates: Partial<Hospital
   const stmt = db.prepare(`
     UPDATE hospital_at_night SET
       reviewDates = ?, priority = ?, assignedRoles = ?, reasonForReview = ?,
-      reviewStatus = ?, reviewType = ?, statusChangedAt = ?, comments = ?
+      reviewStatus = ?, reviewType = ?, specialty = ?, statusChangedAt = ?, comments = ?
     WHERE id = ?
   `);
   stmt.run(
@@ -347,6 +357,7 @@ export function updateHospitalAtNightEntry(id: string, updates: Partial<Hospital
     updated.reasonForReview,
     updated.reviewStatus,
     updated.reviewType || 'Scheduled',
+    updated.specialty || 'Medicine',
     updated.statusChangedAt,
     JSON.stringify(updated.comments || []),
     id

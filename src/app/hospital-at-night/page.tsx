@@ -11,6 +11,7 @@ import {
   HaNPriority,
   HaNComment,
   HaNReviewType,
+  HaNSpecialty,
   formatNhsNumber,
   calculateAge,
   getNewsScoreColor,
@@ -23,6 +24,7 @@ type TabType = 'dashboard' | 'patients';
 type SortOption = 'priority' | 'oldest' | 'newest';
 const ROLES: HaNReviewRole[] = ['FY1', 'SHO', 'SpR', 'Discharge', 'Nurse'];
 const REVIEW_TYPES: HaNReviewType[] = ['Scheduled', 'Ad-hoc'];
+const SPECIALTIES: HaNSpecialty[] = ['Medicine', 'T+O', 'General Surgery'];
 const PRIORITY_ORDER: Record<HaNPriority, number> = { High: 0, Medium: 1, Low: 2 };
 
 // Completion modal for multiple dates
@@ -297,6 +299,8 @@ export default function HospitalAtNightPage() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
 
   // Filters
+  const [specialtyFilter, setSpecialtyFilter] = useState<HaNSpecialty | null>(null);
+  const [dashboardSpecialtyFilter, setDashboardSpecialtyFilter] = useState<HaNSpecialty[]>([]);
   const [roleFilter, setRoleFilter] = useState<HaNReviewRole[]>([]);
   const [dateFilter, setDateFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<HaNReviewStatus[]>([]);
@@ -396,6 +400,20 @@ export default function HospitalAtNightPage() {
     refreshEntries();
   }, [entries, refreshEntries]);
 
+  const handleSpecialtySelect = (specialty: HaNSpecialty) => {
+    if (specialtyFilter === specialty) {
+      setSpecialtyFilter(null);
+    } else {
+      setSpecialtyFilter(specialty);
+      // Reset all other filters when selecting a specialty
+      setRoleFilter([]);
+      setDateFilter('');
+      setStatusFilter([]);
+      setWardFilter([]);
+      setReviewTypeFilter([]);
+    }
+  };
+
   // Get unique wards from entries - sort numerically
   const availableWards = [...new Set(entries.map(e => e.patient?.ward).filter(Boolean))]
     .sort((a, b) => {
@@ -412,6 +430,12 @@ export default function HospitalAtNightPage() {
 
   // Filter entries
   const filteredEntries = entries.filter(entry => {
+    // Specialty filter (patients tab)
+    if (specialtyFilter) {
+      if (entry.specialty !== specialtyFilter) {
+        return false;
+      }
+    }
     // Role filter
     if (roleFilter.length > 0) {
       if (!entry.assignedRoles.some(role => roleFilter.includes(role))) {
@@ -459,13 +483,17 @@ export default function HospitalAtNightPage() {
     }
   });
 
-  // Dashboard stats
+  // Dashboard stats - filtered by dashboard specialty selection
+  const dashboardEntries = dashboardSpecialtyFilter.length > 0
+    ? entries.filter(e => dashboardSpecialtyFilter.includes(e.specialty))
+    : entries;
+
   const stats = {
-    total: entries.length,
-    pending: entries.filter(e => e.reviewStatus === 'Pending').length,
-    complete: entries.filter(e => e.reviewStatus === 'Complete').length,
+    total: dashboardEntries.length,
+    pending: dashboardEntries.filter(e => e.reviewStatus === 'Pending').length,
+    complete: dashboardEntries.filter(e => e.reviewStatus === 'Complete').length,
     byRole: ROLES.reduce((acc, role) => {
-      acc[role] = entries.filter(e =>
+      acc[role] = dashboardEntries.filter(e =>
         e.assignedRoles.includes(role) && e.reviewStatus === 'Pending'
       ).length;
       return acc;
@@ -541,6 +569,38 @@ export default function HospitalAtNightPage() {
       {/* Dashboard Tab */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
+          {/* Specialty Filter */}
+          <div className="flex gap-2 items-center">
+            <span className="text-sm font-medium text-gray-500 mr-1">Specialty:</span>
+            {SPECIALTIES.map(s => (
+              <button
+                key={s}
+                onClick={() => {
+                  if (dashboardSpecialtyFilter.includes(s)) {
+                    setDashboardSpecialtyFilter(dashboardSpecialtyFilter.filter(x => x !== s));
+                  } else {
+                    setDashboardSpecialtyFilter([...dashboardSpecialtyFilter, s]);
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border-2 ${
+                  dashboardSpecialtyFilter.includes(s)
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 hover:border-purple-300'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+            {dashboardSpecialtyFilter.length > 0 && (
+              <button
+                onClick={() => setDashboardSpecialtyFilter([])}
+                className="px-3 py-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Show All
+              </button>
+            )}
+          </div>
+
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
@@ -587,11 +647,11 @@ export default function HospitalAtNightPage() {
           {/* Quick View of High Priority */}
           <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">High Priority Patients</h3>
-            {entries.filter(e => e.priority === 'High' && e.reviewStatus === 'Pending').length === 0 ? (
+            {dashboardEntries.filter(e => e.priority === 'High' && e.reviewStatus === 'Pending').length === 0 ? (
               <p className="text-gray-500 text-sm">No high priority patients pending</p>
             ) : (
               <div className="space-y-2">
-                {entries
+                {dashboardEntries
                   .filter(e => e.priority === 'High' && e.reviewStatus === 'Pending')
                   .map(entry => (
                     <button
@@ -629,6 +689,31 @@ export default function HospitalAtNightPage() {
       {/* Patients Tab */}
       {activeTab === 'patients' && (
         <div className="space-y-4">
+          {/* Specialty Filter */}
+          <div className="flex gap-2">
+            {SPECIALTIES.map(s => (
+              <button
+                key={s}
+                onClick={() => handleSpecialtySelect(s)}
+                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors border-2 ${
+                  specialtyFilter === s
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 hover:border-purple-300'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+            {specialtyFilter && (
+              <button
+                onClick={() => setSpecialtyFilter(null)}
+                className="px-3 py-2.5 text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Show All
+              </button>
+            )}
+          </div>
+
           {/* Filters - Sticky */}
           <div className="sticky top-0 z-10 bg-gray-100 py-4 -mt-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
             <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-4">
@@ -800,7 +885,7 @@ export default function HospitalAtNightPage() {
                 </div>
 
                 {/* Clear Filters - Right Side */}
-                {(roleFilter.length > 0 || dateFilter || statusFilter.length > 0 || wardFilter.length > 0 || reviewTypeFilter.length > 0) && (
+                {(roleFilter.length > 0 || dateFilter || statusFilter.length > 0 || wardFilter.length > 0 || reviewTypeFilter.length > 0 || specialtyFilter) && (
                   <button
                     onClick={() => {
                       setRoleFilter([]);
@@ -808,6 +893,7 @@ export default function HospitalAtNightPage() {
                       setStatusFilter([]);
                       setWardFilter([]);
                       setReviewTypeFilter([]);
+                      setSpecialtyFilter(null);
                     }}
                     className="flex items-center gap-1 px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md font-medium transition-colors"
                     title="Clear all filters"

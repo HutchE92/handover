@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Patient, HaNPriority, HaNReviewRole, HaNReviewDate, HaNReviewType } from '@/lib/types';
+import { Patient, HaNPriority, HaNReviewRole, HaNReviewDate, HaNReviewType, HaNSpecialty } from '@/lib/types';
 
 interface HospitalAtNightModalProps {
   patient: Patient;
@@ -14,12 +14,14 @@ interface HospitalAtNightModalProps {
     reasonForReview: string;
     createdBy: string;
     reviewType: HaNReviewType;
+    specialty: HaNSpecialty;
   }) => void;
 }
 
 const PRIORITIES: HaNPriority[] = ['High', 'Medium', 'Low'];
 const ROLES: HaNReviewRole[] = ['FY1', 'SHO', 'SpR', 'Discharge', 'Nurse'];
 const REVIEW_TYPES: HaNReviewType[] = ['Scheduled', 'Ad-hoc'];
+const SPECIALTIES: HaNSpecialty[] = ['Medicine', 'T+O', 'General Surgery'];
 
 export default function HospitalAtNightModal({
   patient,
@@ -34,6 +36,7 @@ export default function HospitalAtNightModal({
   const [assignedRoles, setAssignedRoles] = useState<HaNReviewRole[]>([]);
   const [reasonForReview, setReasonForReview] = useState('');
   const [createdBy, setCreatedBy] = useState('');
+  const [specialty, setSpecialty] = useState<HaNSpecialty | ''>('');
   const [reviewType, setReviewType] = useState<HaNReviewType>('Scheduled');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +96,10 @@ export default function HospitalAtNightModal({
       setError('Please enter your name');
       return;
     }
+    if (!specialty) {
+      setError('Please select a specialty');
+      return;
+    }
     const validDates = reviewDates.filter(d => d.date);
     if (validDates.length === 0) {
       setError('Please add at least one review date');
@@ -107,7 +114,8 @@ export default function HospitalAtNightModal({
         assignedRoles,
         reasonForReview,
         createdBy,
-        reviewType
+        reviewType,
+        specialty
       });
       // Reset form
       setReviewDates([{ date: new Date().toISOString().split('T')[0] }]);
@@ -115,6 +123,7 @@ export default function HospitalAtNightModal({
       setAssignedRoles([]);
       setReasonForReview('');
       setReviewType('Scheduled');
+      setSpecialty('');
       onClose();
     } catch {
       setError('Failed to submit. Please try again.');
@@ -171,6 +180,35 @@ export default function HospitalAtNightModal({
                 placeholder="e.g., Nurse Smith"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               />
+            </div>
+
+            {/* Specialty */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Specialty *
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {SPECIALTIES.map(s => (
+                  <label
+                    key={s}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md border cursor-pointer transition-colors ${
+                      specialty === s
+                        ? 'bg-purple-100 border-purple-400 text-purple-800'
+                        : 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="specialty"
+                      value={s}
+                      checked={specialty === s}
+                      onChange={() => setSpecialty(s)}
+                      className="sr-only"
+                    />
+                    {s}
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Review Type */}

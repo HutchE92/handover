@@ -42,6 +42,7 @@ export type HaNPriority = 'High' | 'Medium' | 'Low';
 export type HaNReviewRole = 'FY1' | 'SHO' | 'SpR' | 'Discharge' | 'Nurse';
 export type HaNReviewStatus = 'Pending' | 'Complete';
 export type HaNReviewType = 'Scheduled' | 'Ad-hoc';
+export type HaNSpecialty = 'Medicine' | 'T+O' | 'General Surgery';
 
 export interface HaNReviewDate {
   date: string;
@@ -64,6 +65,7 @@ export interface HospitalAtNightEntry {
   reasonForReview: string;
   reviewStatus: HaNReviewStatus;
   reviewType: HaNReviewType;
+  specialty: HaNSpecialty;
   statusChangedAt: string | null;
   createdAt: string;
   createdBy: string;
