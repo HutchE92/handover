@@ -715,7 +715,7 @@ export default function HospitalAtNightPage() {
           </div>
 
           {/* Filters - Sticky */}
-          <div className="sticky top-0 z-10 bg-gray-100 py-4 -mt-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="sticky top-0 z-10 py-4 -mt-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
             <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-wrap gap-6 items-start">
