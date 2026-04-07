@@ -449,6 +449,11 @@ function ReferralHistoryCard({ entry, onViewComments }: { entry: SpecialtyReferr
         <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${statusColors[entry.status]}`}>
           {entry.status}
         </span>
+        {entry.updatedAt && entry.updatedAt !== entry.createdAt && (
+          <span className="text-xs text-gray-400">
+            {new Date(entry.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
         <button
           onClick={onViewComments}
           className="ml-auto flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"

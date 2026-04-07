@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
 import {
   SpecialtyReferral,
@@ -153,9 +154,16 @@ function ReferralCard({
       <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div>
-            <span className="font-semibold text-gray-900">
-              {patient ? `${patient.lastName}, ${patient.firstName}` : 'Unknown Patient'}
-            </span>
+            {patient ? (
+              <Link
+                href={`/patients/${referral.patientId}`}
+                className="font-semibold text-gray-900 hover:text-teal-600 hover:underline transition-colors"
+              >
+                {patient.lastName}, {patient.firstName}
+              </Link>
+            ) : (
+              <span className="font-semibold text-gray-900">Unknown Patient</span>
+            )}
             {patient && (
               <span className="text-sm text-gray-500 ml-2">
                 {patient.ward} · Bed {patient.bedNumber}
@@ -206,7 +214,7 @@ function ReferralCard({
         {/* Actions row */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Outcome / Status change */}
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <span className="text-xs font-medium text-gray-600 mr-1">Outcome:</span>
             {(['Pending', 'Accepted', 'Declined', 'Cancelled'] as ReferralStatus[]).map(s => (
               <button
@@ -221,6 +229,11 @@ function ReferralCard({
                 {s}
               </button>
             ))}
+            {referral.updatedAt && referral.updatedAt !== referral.createdAt && (
+              <span className="text-xs text-gray-400 ml-1">
+                Updated: {new Date(referral.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -244,50 +257,73 @@ function ReferralCard({
             {handover && (
               <button
                 onClick={() => setShowHandover(!showHandover)}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors"
+                className="flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 font-medium"
               >
-                {showHandover ? 'Hide' : 'Show'} Handover
+                {showHandover ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    Hide Handover
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Show Handover
+                  </>
+                )}
               </button>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Handover */}
-        {showHandover && handover && (
-          <div className="mt-3 border-t border-gray-200 pt-3">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="bg-blue-50 rounded p-2">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="bg-blue-100 text-blue-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">S</span>
-                  <span className="text-xs font-semibold text-blue-700">Situation</span>
-                </div>
-                <p className="text-gray-700 text-xs">{handover.situation}</p>
+      {/* Handover — SBAR 4-column layout */}
+      {showHandover && handover && (
+        <div className="border-t border-gray-200 bg-gray-50 p-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Latest Handover</h4>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-blue-100 text-blue-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">S</span>
+                <span className="text-xs font-semibold text-blue-700">Situation</span>
               </div>
-              <div className="bg-green-50 rounded p-2">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="bg-green-100 text-green-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">B</span>
-                  <span className="text-xs font-semibold text-green-700">Background</span>
-                </div>
-                <p className="text-gray-700 text-xs">{handover.background}</p>
+              <p className="text-sm text-gray-700">{handover.situation}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-green-100 text-green-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">B</span>
+                <span className="text-xs font-semibold text-green-700">Background</span>
               </div>
-              <div className="bg-amber-50 rounded p-2">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="bg-amber-100 text-amber-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">A</span>
-                  <span className="text-xs font-semibold text-amber-700">Assessment</span>
-                </div>
-                <p className="text-gray-700 text-xs">{handover.assessment}</p>
+              <p className="text-sm text-gray-700">{handover.background}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-amber-100 text-amber-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">A</span>
+                <span className="text-xs font-semibold text-amber-700">Assessment</span>
               </div>
-              <div className="bg-red-50 rounded p-2">
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="bg-red-100 text-red-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">R</span>
-                  <span className="text-xs font-semibold text-red-700">Recommendation</span>
-                </div>
-                <p className="text-gray-700 text-xs">{handover.recommendation}</p>
+              <p className="text-sm text-gray-700">{handover.assessment}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-red-100 text-red-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">R</span>
+                <span className="text-xs font-semibold text-red-700">Recommendation</span>
               </div>
+              <p className="text-sm text-gray-700">{handover.recommendation}</p>
             </div>
           </div>
-        )}
-      </div>
+          <p className="text-xs text-gray-400 mt-2">
+            By {handover.createdBy} on {new Date(handover.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+      )}
+      {showHandover && !handover && (
+        <div className="border-t border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm text-gray-500 italic">No handover notes available for this patient</p>
+        </div>
+      )}
 
       <ViewCommentsModal
         isOpen={showComments}
@@ -435,6 +471,35 @@ export default function ReferralsPage() {
   const [patPriorityFilter, setPatPriorityFilter] = useState<ReferralPriority[]>([]);
   const [patStatusFilter, setPatStatusFilter] = useState<ReferralStatus[]>([]);
   const [patSort, setPatSort] = useState<SortOption>('priority');
+
+  // Persist default specialty
+  useEffect(() => {
+    const saved = localStorage.getItem('referrals_default_specialty');
+    if (saved) {
+      setDefaultSpecialty(saved as ReferralSpecialty);
+      setSelectedSpecialty(saved as ReferralSpecialty);
+    }
+  }, []);
+  useEffect(() => {
+    if (defaultSpecialty) {
+      localStorage.setItem('referrals_default_specialty', defaultSpecialty);
+    } else {
+      localStorage.removeItem('referrals_default_specialty');
+    }
+  }, [defaultSpecialty]);
+
+  // Persist default ward
+  useEffect(() => {
+    const saved = localStorage.getItem('referrals_default_ward');
+    if (saved) setDefaultWard(saved);
+  }, []);
+  useEffect(() => {
+    if (defaultWard) {
+      localStorage.setItem('referrals_default_ward', defaultWard);
+    } else {
+      localStorage.removeItem('referrals_default_ward');
+    }
+  }, [defaultWard]);
 
   const loading = referralsLoading || patientsLoading;
 
