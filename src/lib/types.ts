@@ -77,6 +77,46 @@ export interface HospitalAtNightWithPatient extends HospitalAtNightEntry {
   latestHandover?: HandoverNote;
 }
 
+// Specialty Referral types
+export const REFERRAL_SPECIALTIES = [
+  'Anaesthetics', 'Cardiology', 'Dermatology', 'Endocrinology',
+  'Gastroenterology', 'Gynaecology', 'Haematology', 'Hepatology',
+  'Infectious Diseases', 'Intensive Care', 'Interventional Radiology',
+  'General Surgery', 'Nephrology', 'Neurology', 'Neurosurgery',
+  'Oncology', 'Ophthalmology', 'Orthopaedics', 'Paediatrics',
+  'Palliative Care', 'Psychiatry', 'Respiratory', 'Rheumatology',
+  'Urology', 'Vascular Surgery'
+] as const;
+
+export type ReferralSpecialty = typeof REFERRAL_SPECIALTIES[number];
+export type ReferralPriority = 'High' | 'Medium' | 'Low';
+export type ReferralStatus = 'Pending' | 'Accepted' | 'Declined' | 'Cancelled';
+
+export interface ReferralComment {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface SpecialtyReferral {
+  id: string;
+  patientId: string;
+  specialty: ReferralSpecialty;
+  priority: ReferralPriority;
+  reasonForReferral: string;
+  status: ReferralStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  comments: ReferralComment[];
+}
+
+export interface SpecialtyReferralWithPatient extends SpecialtyReferral {
+  patient?: Patient;
+  latestHandover?: HandoverNote;
+}
+
 export function getNewsScoreColor(score: number | null): string {
   if (score === null) return 'bg-gray-100 text-gray-600';
   if (score <= 4) return 'bg-green-100 text-green-800';

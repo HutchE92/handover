@@ -11,6 +11,7 @@ export default function Header() {
     { href: '/patients', label: 'Patients' },
     { href: '/handover', label: 'Handover' },
     { href: '/hospital-at-night', label: 'Hospital Out Of Hours' },
+    { href: '/referrals', label: 'Referrals' },
   ];
 
   return (

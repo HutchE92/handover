@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType, HaNSpecialty } from '@/lib/types';
+import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType, HaNSpecialty, ReferralSpecialty, ReferralPriority, SpecialtyReferral } from '@/lib/types';
 import HospitalAtNightModal from '@/components/HospitalAtNightModal';
+import SpecialtyReferralModal from '@/components/SpecialtyReferralModal';
 import { v4 as uuidv4 } from 'uuid';
 import { usePatients, useHandoverNotes, useHospitalAtNight } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
@@ -230,6 +231,7 @@ export default function HandoverListPage() {
   const [defaultWard, setDefaultWard] = useState<string>('');
   const [filterHighNews, setFilterHighNews] = useState(false);
   const [hanModalPatient, setHanModalPatient] = useState<PatientWithLatestHandover | null>(null);
+  const [referralModalPatient, setReferralModalPatient] = useState<PatientWithLatestHandover | null>(null);
   const [selectedOohEntry, setSelectedOohEntry] = useState<HospitalAtNightEntry | null>(null);
 
   const loading = patientsLoading || handoversLoading || oohLoading;
@@ -264,6 +266,29 @@ export default function HandoverListPage() {
     storage.createHospitalAtNightEntry(newEntry);
     setHanModalPatient(null);
     refreshOoh();
+  };
+
+  const handleReferralSubmit = async (data: {
+    specialty: ReferralSpecialty;
+    priority: ReferralPriority;
+    reasonForReferral: string;
+    createdBy: string;
+  }) => {
+    if (!referralModalPatient) return;
+    const newReferral: SpecialtyReferral = {
+      id: uuidv4(),
+      patientId: referralModalPatient.id,
+      specialty: data.specialty,
+      priority: data.priority,
+      reasonForReferral: data.reasonForReferral,
+      status: 'Pending',
+      createdBy: data.createdBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      comments: []
+    };
+    storage.createSpecialtyReferral(newReferral);
+    setReferralModalPatient(null);
   };
 
   // Handle OOH status change
@@ -613,6 +638,18 @@ export default function HandoverListPage() {
                           </svg>
                           Refer to OOH
                         </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setReferralModalPatient(patient);
+                          }}
+                          className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-teal-100 text-teal-700 rounded border border-teal-300 text-xs font-medium hover:bg-teal-200 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          Refer to Speciality
+                        </button>
                       </div>
                     </>
                   ) : (
@@ -637,6 +674,16 @@ export default function HandoverListPage() {
           isOpen={true}
           onClose={() => setHanModalPatient(null)}
           onSubmit={handleHaNSubmit}
+        />
+      )}
+
+      {/* Specialty Referral Modal */}
+      {referralModalPatient && (
+        <SpecialtyReferralModal
+          patient={referralModalPatient}
+          isOpen={true}
+          onClose={() => setReferralModalPatient(null)}
+          onSubmit={handleReferralSubmit}
         />
       )}
 

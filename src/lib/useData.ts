@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Patient, HandoverNote, HospitalAtNightEntry } from './types';
+import { Patient, HandoverNote, HospitalAtNightEntry, SpecialtyReferral } from './types';
 import * as storage from './localStorage';
 
 // Initialize data on first load
@@ -222,6 +222,54 @@ export function usePatientsWithHandover() {
   }, [refresh]);
 
   return { patients, loading, refresh };
+}
+
+// Hook for specialty referrals
+export function useSpecialtyReferrals() {
+  const [referrals, setReferrals] = useState<SpecialtyReferral[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(() => {
+    ensureInitialized();
+    setReferrals(storage.getAllSpecialtyReferrals());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const createReferral = useCallback((referral: SpecialtyReferral) => {
+    storage.createSpecialtyReferral(referral);
+    refresh();
+    return referral;
+  }, [refresh]);
+
+  const updateReferral = useCallback((id: string, updates: Partial<SpecialtyReferral>) => {
+    const result = storage.updateSpecialtyReferral(id, updates);
+    refresh();
+    return result;
+  }, [refresh]);
+
+  return { referrals, loading, refresh, createReferral, updateReferral };
+}
+
+// Hook for specialty referrals by patient
+export function useSpecialtyReferralsByPatient(patientId: string) {
+  const [referrals, setReferrals] = useState<SpecialtyReferral[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(() => {
+    ensureInitialized();
+    setReferrals(storage.getSpecialtyReferralsByPatient(patientId));
+    setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { referrals, loading, refresh };
 }
 
 // Reset to sample data

@@ -1,10 +1,11 @@
 // localStorage-based data layer for static deployment
-import { Patient, HandoverNote, HospitalAtNightEntry, HaNComment } from './types';
+import { Patient, HandoverNote, HospitalAtNightEntry, HaNComment, SpecialtyReferral, ReferralComment } from './types';
 
 const STORAGE_KEYS = {
   patients: 'handover_patients',
   handoverNotes: 'handover_notes',
   hospitalAtNight: 'hospital_at_night',
+  specialtyReferrals: 'specialty_referrals',
   initialized: 'handover_initialized'
 };
 
@@ -3738,6 +3739,166 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   }
 ];
 
+// Sample specialty referrals
+const d1 = '2026-04-07T09:15:00.000Z';
+const d2 = '2026-04-07T14:30:00.000Z';
+const d3 = '2026-04-06T08:45:00.000Z';
+const d4 = '2026-04-06T16:20:00.000Z';
+const d5 = '2026-04-05T10:00:00.000Z';
+const d6 = '2026-04-05T13:45:00.000Z';
+const d7 = '2026-04-04T09:30:00.000Z';
+const d8 = '2026-04-04T15:10:00.000Z';
+const d9 = '2026-04-03T11:20:00.000Z';
+const d10 = '2026-04-02T08:00:00.000Z';
+
+const sampleSpecialtyReferrals: SpecialtyReferral[] = [
+  // Cardiology (10)
+  { id: 'ref1', patientId: 'p5', specialty: 'Cardiology', priority: 'High', reasonForReferral: 'Worsening heart failure with EF 25% on echo. BNP markedly elevated at 2400. Patient on maximal oral therapy but ongoing fluid retention. Requires urgent cardiology review for consideration of IV diuretics and possible CRT-D device discussion.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc1', text: 'Echo report attached. Patient reviewed by on-call - awaiting cardiology input.', createdBy: 'Dr. Thompson', createdAt: d1 }] },
+  { id: 'ref2', patientId: 'p8', specialty: 'Cardiology', priority: 'High', reasonForReferral: 'New onset AF with rapid ventricular response (HR 140 bpm). Haemodynamically compromised with BP 85/60. DC cardioversion may be required. Please review urgently for rate/rhythm management.', status: 'Accepted', createdBy: 'Nurse Williams', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc2', text: 'Cardiology SpR reviewed. Rate controlled with IV metoprolol. Anticoagulation started. ECHO booked.', createdBy: 'Dr. Patel', createdAt: d3 }] },
+  { id: 'ref3', patientId: 'p13', specialty: 'Cardiology', priority: 'High', reasonForReferral: 'NSTEMI with troponin rise to 8500. ECG changes in leads V1-V4. Currently on DAPT and anticoagulation. Requires cardiology review for consideration of coronary angiography and possible PCI.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d3, updatedAt: d4, comments: [] },
+  { id: 'ref4', patientId: 'p21', specialty: 'Cardiology', priority: 'Medium', reasonForReferral: 'Infective endocarditis on TOE. Aortic valve vegetation 12mm. Currently on IV benzylpenicillin. Cardiology review requested for ongoing management and surgical referral planning.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d4, updatedAt: d4, comments: [] },
+  { id: 'ref5', patientId: 'p29', specialty: 'Cardiology', priority: 'Medium', reasonForReferral: 'Complete heart block. Temporary pacing wire in situ. Haemodynamically stable. Requires cardiology review for permanent pacemaker insertion planning.', status: 'Accepted', createdBy: 'Nurse Adams', createdAt: d5, updatedAt: d6, comments: [{ id: 'rc3', text: 'PPM insertion booked for Thursday. Patient consented and NBM from midnight.', createdBy: 'Dr. Hughes', createdAt: d6 }] },
+  { id: 'ref6', patientId: 'p34', specialty: 'Cardiology', priority: 'Medium', reasonForReferral: 'Dilated cardiomyopathy newly diagnosed on echocardiogram. EF 20%. Requires cardiology review for initiation of ACE inhibitor, beta blocker and consideration of ICD implantation.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref7', patientId: 'p47', specialty: 'Cardiology', priority: 'Low', reasonForReferral: 'Persistent hypertension despite triple therapy (BP 175/100). Possible secondary hypertension. Requesting cardiology review for further investigation and optimisation of antihypertensive regimen.', status: 'Pending', createdBy: 'Nurse Brown', createdAt: d7, updatedAt: d7, comments: [] },
+  { id: 'ref8', patientId: 'p50', specialty: 'Cardiology', priority: 'High', reasonForReferral: 'Massive PE with right heart strain on CTPA. Haemodynamically borderline. Requesting urgent cardiology review for consideration of catheter-directed thrombolysis vs systemic thrombolysis.', status: 'Declined', createdBy: 'Dr. O\'Brien', createdAt: d8, updatedAt: d9, comments: [{ id: 'rc4', text: 'Declined - patient managed by respiratory team. Systemic thrombolysis given with good response.', createdBy: 'Dr. Kumar', createdAt: d9 }] },
+  { id: 'ref9', patientId: 'p60', specialty: 'Cardiology', priority: 'Low', reasonForReferral: 'Asymptomatic bradycardia (HR 38 bpm) noted on routine monitoring. Currently on atenolol. Requesting cardiology review to assess need for 24h tape and medication adjustment.', status: 'Pending', createdBy: 'Nurse Jackson', createdAt: d9, updatedAt: d9, comments: [] },
+  { id: 'ref10', patientId: 'p68', specialty: 'Cardiology', priority: 'Medium', reasonForReferral: 'Takotsubo cardiomyopathy post major stressor (bereavement). Apical ballooning on echo. LV function recovering. Cardiology review for outpatient follow-up planning and medication optimisation.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Dermatology (10)
+  { id: 'ref11', patientId: 'p1', specialty: 'Dermatology', priority: 'High', reasonForReferral: 'Extensive erythroderma covering >90% BSA. Patient systemically unwell with fever and raised inflammatory markers. Possible drug reaction vs flare of underlying psoriasis. Urgent dermatology review required for diagnosis and management.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d1, updatedAt: d1, comments: [] },
+  { id: 'ref12', patientId: 'p6', specialty: 'Dermatology', priority: 'High', reasonForReferral: 'Suspected Stevens-Johnson Syndrome. Widespread blistering and mucosal involvement following co-trimoxazole started 10 days ago. Ophthalmology also involved. Requires urgent dermatology input for management and biopsy.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc5', text: 'Dermatology reviewed. Drug stopped. IV corticosteroids started. Transfer to specialist unit being arranged.', createdBy: 'Dr. Sharma', createdAt: d3 }] },
+  { id: 'ref13', patientId: 'p11', specialty: 'Dermatology', priority: 'Medium', reasonForReferral: 'Cellulitis not responding to IV flucloxacillin after 5 days. Query necrotising fasciitis - border poorly defined, significant pain. Dermatology review requested alongside surgical review.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d3, updatedAt: d3, comments: [] },
+  { id: 'ref14', patientId: 'p16', specialty: 'Dermatology', priority: 'Medium', reasonForReferral: 'Rapidly expanding pigmented lesion on back, irregular border and satellite lesions. Possible melanoma. Requires urgent dermatology review and excision biopsy.', status: 'Accepted', createdBy: 'Dr. Evans', createdAt: d4, updatedAt: d5, comments: [{ id: 'rc6', text: 'Dermoscopy performed - high suspicion melanoma. Wide local excision booked. Oncology referral also raised.', createdBy: 'Dr. Hassan', createdAt: d5 }] },
+  { id: 'ref15', patientId: 'p25', specialty: 'Dermatology', priority: 'Medium', reasonForReferral: 'Severe psoriatic flare with >60% BSA involvement. Patient has failed multiple topical therapies. Inpatient admission. Requesting dermatology review for initiation of systemic therapy (methotrexate or biologic).', status: 'Pending', createdBy: 'Nurse Williams', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref16', patientId: 'p31', specialty: 'Dermatology', priority: 'Low', reasonForReferral: 'Chronic pruritic rash unresponsive to antihistamines and topical steroids. Present for 3 months. Requesting dermatology review for patch testing and specialist management.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref17', patientId: 'p37', specialty: 'Dermatology', priority: 'High', reasonForReferral: 'Bullous pemphigoid with extensive blistering. Nikolsky sign positive. Requires urgent dermatology review for confirmation of diagnosis and commencement of systemic immunosuppression.', status: 'Accepted', createdBy: 'Nurse Adams', createdAt: d7, updatedAt: d8, comments: [{ id: 'rc7', text: 'Skin biopsy taken. High dose prednisolone commenced. Dermatology team taking over as primary team.', createdBy: 'Dr. Hassan', createdAt: d8 }] },
+  { id: 'ref18', patientId: 'p43', specialty: 'Dermatology', priority: 'Low', reasonForReferral: 'Acne vulgaris with significant scarring despite prolonged antibiotic treatment. Requesting dermatology review for consideration of isotretinoin therapy and scarring management options.', status: 'Cancelled', createdBy: 'Dr. O\'Brien', createdAt: d8, updatedAt: d9, comments: [{ id: 'rc8', text: 'Patient discharged - to be referred via outpatient route.', createdBy: 'Nurse Brown', createdAt: d9 }] },
+  { id: 'ref19', patientId: 'p50', specialty: 'Dermatology', priority: 'Medium', reasonForReferral: 'Pyoderma gangrenosum on lower limb, expanding despite wound care. Associated with IBD. Requesting dermatology review for confirmation and systemic immunosuppressive treatment.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d9, updatedAt: d9, comments: [] },
+  { id: 'ref20', patientId: 'p60', specialty: 'Dermatology', priority: 'Medium', reasonForReferral: 'Vasculitic rash on lower limbs with palpable purpura. Bloods show raised ANCA. Dermatology review requested for skin biopsy and joint management with rheumatology.', status: 'Pending', createdBy: 'Dr. Chen', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Respiratory (10)
+  { id: 'ref21', patientId: 'p2', specialty: 'Respiratory', priority: 'High', reasonForReferral: 'Severe COPD exacerbation with type 2 respiratory failure (pCO2 9.8kPa). NIV commenced but patient struggling to tolerate. Requires urgent respiratory review for management escalation and possible ITU referral.', status: 'Pending', createdBy: 'Nurse Williams', createdAt: d1, updatedAt: d1, comments: [] },
+  { id: 'ref22', patientId: 'p11', specialty: 'Respiratory', priority: 'High', reasonForReferral: 'Life-threatening asthma. PEFR <33% predicted. Not responding to salbutamol nebs and IV hydrocortisone. Requesting urgent respiratory review for escalation of therapy.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d2, comments: [{ id: 'rc9', text: 'Reviewed. IV magnesium given. Heliox commenced. ITU bed requested as backup.', createdBy: 'Dr. Kumar', createdAt: d2 }] },
+  { id: 'ref23', patientId: 'p29', specialty: 'Respiratory', priority: 'High', reasonForReferral: 'Pneumothorax with tension features. Mediastinal shift on CXR. Patient deteriorating - SpO2 82% on high flow oxygen. Respiratory/thoracic review urgently required.', status: 'Accepted', createdBy: 'Nurse Adams', createdAt: d3, updatedAt: d3, comments: [{ id: 'rc10', text: 'Emergency needle decompression performed. Chest drain inserted. Patient stabilising.', createdBy: 'Dr. Kumar', createdAt: d3 }] },
+  { id: 'ref24', patientId: 'p38', specialty: 'Respiratory', priority: 'Medium', reasonForReferral: 'Suspected community-acquired pneumonia not responding to first-line antibiotics after 72 hours. CXR shows multilobar consolidation. Requesting respiratory review for antibiotic guidance and possible bronchoscopy.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d4, updatedAt: d4, comments: [] },
+  { id: 'ref25', patientId: 'p47', specialty: 'Respiratory', priority: 'Medium', reasonForReferral: 'Large pleural effusion causing dyspnoea. CT shows loculated fluid. Requesting respiratory review for thoracocentesis or chest drain insertion under ultrasound guidance.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d5, updatedAt: d6, comments: [{ id: 'rc11', text: 'US-guided pleural aspiration performed. 1.2L straw-coloured fluid drained. Cytology sent.', createdBy: 'Dr. Kumar', createdAt: d6 }] },
+  { id: 'ref26', patientId: 'p57', specialty: 'Respiratory', priority: 'Medium', reasonForReferral: 'Haemoptysis with 200ml blood in 24h. CT chest shows cavitating lesion in right upper lobe. Possible TB vs carcinoma. Requesting respiratory review for bronchoscopy and sputum collection.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref27', patientId: 'p64', specialty: 'Respiratory', priority: 'Low', reasonForReferral: 'Pulmonary fibrosis (UIP pattern on HRCT) newly diagnosed on imaging. Requesting respiratory review for spirometry, 6-minute walk test and initiation of antifibrotic therapy.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d7, updatedAt: d7, comments: [] },
+  { id: 'ref28', patientId: 'p72', specialty: 'Respiratory', priority: 'High', reasonForReferral: 'Suspected Pneumocystis jirovecii pneumonia in immunocompromised patient (on azathioprine). Bilateral ground-glass changes on CT. O2 requirement rapidly increasing. Requesting respiratory review.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d8, updatedAt: d8, comments: [{ id: 'rc12', text: 'High-dose co-trimoxazole started. BAL performed - PCP confirmed on direct immunofluorescence.', createdBy: 'Dr. Kumar', createdAt: d8 }] },
+  { id: 'ref29', patientId: 'p79', specialty: 'Respiratory', priority: 'Medium', reasonForReferral: 'Obstructive sleep apnoea suspected. Patient with BMI 42, excessive daytime somnolence and Epworth score 18. Requesting respiratory review for sleep studies and CPAP initiation.', status: 'Pending', createdBy: 'Nurse Brown', createdAt: d9, updatedAt: d9, comments: [] },
+  { id: 'ref30', patientId: 'p88', specialty: 'Respiratory', priority: 'Low', reasonForReferral: 'Sarcoidosis with bilateral hilar lymphadenopathy on CXR. Serum ACE elevated. Requesting respiratory review for bronchoscopy with BAL and transbronchial biopsy.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Anaesthetics (3)
+  { id: 'ref31', patientId: 'p93', specialty: 'Anaesthetics', priority: 'High', reasonForReferral: 'Difficult airway anticipated - Mallampati IV, limited mouth opening, short neck. Patient requires emergency laparotomy tonight. Anaesthetics review for pre-operative airway assessment and awake fibreoptic intubation planning.', status: 'Accepted', createdBy: 'Mr. Wilson', createdAt: d3, updatedAt: d4, comments: [] },
+  { id: 'ref32', patientId: 'p100', specialty: 'Anaesthetics', priority: 'Medium', reasonForReferral: 'Complex pain management post major joint replacement. Current opiate regimen inadequate. Requesting anaesthetics/pain team review for multimodal analgesia optimisation and possible epidural assessment.', status: 'Pending', createdBy: 'Nurse Adams', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref33', patientId: 'p104', specialty: 'Anaesthetics', priority: 'Low', reasonForReferral: 'Pre-operative assessment required for elective bowel resection. Patient with significant cardiac history (CABG 2018) and CKD stage 3. Anaesthetics review for risk stratification and pre-op optimisation.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d8, updatedAt: d8, comments: [] },
+
+  // Endocrinology (3)
+  { id: 'ref34', patientId: 'p6', specialty: 'Endocrinology', priority: 'High', reasonForReferral: 'Diabetic ketoacidosis not resolving despite 24h FRII. pH still 7.22, bicarbonate 12. Requesting endocrinology review for insulin regimen adjustment and management optimisation.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc13', text: 'Endocrinology reviewed. FRII rate increased. Aim for ketones <0.5 before switching to SC insulin.', createdBy: 'Dr. Shah', createdAt: d3 }] },
+  { id: 'ref35', patientId: 'p44', specialty: 'Endocrinology', priority: 'Medium', reasonForReferral: 'Adrenal incidentaloma found on CT abdomen. 2.8cm left adrenal lesion with suspicious features. Requesting endocrinology review for hormonal workup and management planning.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref36', patientId: 'p57', specialty: 'Endocrinology', priority: 'Medium', reasonForReferral: 'Thyroid storm suspected. HR 155, temp 39.8°C, agitated. TSH suppressed, T4 markedly elevated. Requesting urgent endocrinology review for Burch-Wartofsky scoring and management.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d7, updatedAt: d7, comments: [] },
+
+  // Gastroenterology (3)
+  { id: 'ref37', patientId: 'p31', specialty: 'Gastroenterology', priority: 'High', reasonForReferral: 'Upper GI bleed with Hb drop from 110 to 72 in 12 hours. Haematemesis ongoing. Requesting urgent gastroenterology review for OGD and variceal vs peptic ulcer management.', status: 'Accepted', createdBy: 'Dr. Khan', createdAt: d1, updatedAt: d2, comments: [{ id: 'rc14', text: 'OGD performed - active bleeding peptic ulcer. Adrenaline injection and clipping performed. Omeprazole infusion started.', createdBy: 'Dr. Patel', createdAt: d2 }] },
+  { id: 'ref38', patientId: 'p81', specialty: 'Gastroenterology', priority: 'Medium', reasonForReferral: 'Ulcerative colitis flare with bloody diarrhoea 12x/day and CRP 215. Failed IV steroids at 5 days. Requesting gastroenterology review for rescue therapy (cyclosporin or infliximab).', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref39', patientId: 'p88', specialty: 'Gastroenterology', priority: 'Low', reasonForReferral: 'Iron deficiency anaemia with Hb 78. Colonoscopy required to exclude colorectal cancer. Requesting gastroenterology outpatient review and endoscopy listing.', status: 'Pending', createdBy: 'Nurse Brown', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Gynaecology (3)
+  { id: 'ref40', patientId: 'p64', specialty: 'Gynaecology', priority: 'High', reasonForReferral: 'Suspected ectopic pregnancy. Beta-hCG rising (3200), no intrauterine pregnancy on transvaginal USS. Right adnexal mass 3cm. Requesting urgent gynaecology review.', status: 'Accepted', createdBy: 'Nurse Adams', createdAt: d3, updatedAt: d3, comments: [{ id: 'rc15', text: 'Reviewed - ectopic confirmed. Patient for theatre within 2 hours for laparoscopy.', createdBy: 'Mr. Ahmed', createdAt: d3 }] },
+  { id: 'ref41', patientId: 'p79', specialty: 'Gynaecology', priority: 'Medium', reasonForReferral: 'Ovarian cyst 8cm with raised CA-125 (450 U/mL). USS features concerning for malignancy. Requesting gynaecology review for further assessment and management planning.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref42', patientId: 'p93', specialty: 'Gynaecology', priority: 'Medium', reasonForReferral: 'Post-menopausal bleeding. TVS shows endometrial thickness 14mm. Requesting gynaecology review for hysteroscopy and endometrial biopsy.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Haematology (3)
+  { id: 'ref43', patientId: 'p13', specialty: 'Haematology', priority: 'High', reasonForReferral: 'Acute leukaemia suspected on blood film. WBC 98, blasts 78%. Requesting urgent haematology review for bone marrow biopsy and initiation of treatment.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc16', text: 'Haematology reviewed. BMA performed. AML confirmed. Starting daunorubicin/cytarabine protocol.', createdBy: 'Dr. Ali', createdAt: d3 }] },
+  { id: 'ref44', patientId: 'p38', specialty: 'Haematology', priority: 'Medium', reasonForReferral: 'TTP suspected. MAHA on blood film, thrombocytopenia (plt 18), creatinine rising. ADAMTS13 sent. Requesting urgent haematology review for plasma exchange initiation.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref45', patientId: 'p57', specialty: 'Haematology', priority: 'Medium', reasonForReferral: 'Recurrent DVT on anticoagulation. Thrombophilia screen previously negative. Requesting haematology review for investigation of antiphospholipid syndrome and long-term anticoagulation management.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d8, updatedAt: d8, comments: [] },
+
+  // Hepatology (3)
+  { id: 'ref46', patientId: 'p34', specialty: 'Hepatology', priority: 'High', reasonForReferral: 'Acute liver failure - paracetamol overdose. INR 4.2, pH 7.28, creatinine rising. Kings criteria met. Requesting urgent hepatology review for assessment for liver transplantation.', status: 'Accepted', createdBy: 'Nurse Williams', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc17', text: 'Hepatology reviewed. Transfer to liver unit arranged. Kings criteria ongoing monitoring. Transplant team notified.', createdBy: 'Dr. Evans', createdAt: d1 }] },
+  { id: 'ref47', patientId: 'p81', specialty: 'Hepatology', priority: 'Medium', reasonForReferral: 'Decompensated cirrhosis with new onset ascites. Child-Pugh C. Requesting hepatology review for ascitic drain, hepatic encephalopathy management and transplant assessment.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref48', patientId: 'p100', specialty: 'Hepatology', priority: 'Low', reasonForReferral: 'Non-alcoholic fatty liver disease with bridging fibrosis on biopsy (F3). Requesting hepatology review for optimisation of metabolic risk factors and fibroscan surveillance planning.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Infectious Diseases (3)
+  { id: 'ref49', patientId: 'p8', specialty: 'Infectious Diseases', priority: 'High', reasonForReferral: 'Septicaemia with gram-negative bacteraemia. Blood cultures growing E. coli with ESBL resistance pattern. Requesting ID review for antibiotic rationalisation and source investigation.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc18', text: 'ID reviewed. Switched to meropenem. Echo to exclude endocarditis. CT chest/abdomen for source.', createdBy: 'Dr. Rashid', createdAt: d3 }] },
+  { id: 'ref50', patientId: 'p44', specialty: 'Infectious Diseases', priority: 'Medium', reasonForReferral: 'Suspected miliary tuberculosis. Constitutional symptoms, bilateral micronodular shadowing on CXR. AFB smear positive. Requesting ID review for treatment initiation and contact tracing.', status: 'Pending', createdBy: 'Dr. Kumar', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref51', patientId: 'p68', specialty: 'Infectious Diseases', priority: 'Medium', reasonForReferral: 'HIV diagnosis confirmed (CD4 45, viral load 890,000). Opportunistic infections screen sent. Requesting ID review for ART initiation and prophylaxis.', status: 'Pending', createdBy: 'Nurse Jackson', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Intensive Care (3)
+  { id: 'ref52', patientId: 'p2', specialty: 'Intensive Care', priority: 'High', reasonForReferral: 'Septic shock with MAP <65 despite 3L fluid resuscitation and noradrenaline at 0.4 mcg/kg/min. Lactate rising at 6.2. Requesting ITU review for level 3 care and vasopressor escalation.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc19', text: 'ITU SpR reviewed. Level 3 bed available. Transfer in progress. Vasopressin added.', createdBy: 'Dr. Morris', createdAt: d1 }] },
+  { id: 'ref53', patientId: 'p29', specialty: 'Intensive Care', priority: 'High', reasonForReferral: 'Post-operative respiratory failure after major oesophagectomy. FiO2 0.8, P/F ratio 110. Bilateral infiltrates. ARDS picture. Requesting ITU review for intubation and lung-protective ventilation.', status: 'Accepted', createdBy: 'Mr. Wilson', createdAt: d4, updatedAt: d4, comments: [] },
+  { id: 'ref54', patientId: 'p72', specialty: 'Intensive Care', priority: 'Medium', reasonForReferral: 'Worsening acute pancreatitis (Ranson score 5). Developing organ dysfunction. Requesting ITU review for level 2/3 care assessment and monitoring.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d7, updatedAt: d7, comments: [] },
+
+  // Interventional Radiology (3)
+  { id: 'ref55', patientId: 'p31', specialty: 'Interventional Radiology', priority: 'High', reasonForReferral: 'Ongoing GI haemorrhage with haemodynamic compromise. OGD unsuccessful at obtaining haemostasis. Requesting urgent IR review for angiography and embolisation.', status: 'Accepted', createdBy: 'Dr. Khan', createdAt: d3, updatedAt: d4, comments: [{ id: 'rc20', text: 'IR performed mesenteric angiography. Haemostasis achieved with coil embolisation. Patient stable.', createdBy: 'Dr. Patel', createdAt: d4 }] },
+  { id: 'ref56', patientId: 'p57', specialty: 'Interventional Radiology', priority: 'Medium', reasonForReferral: 'Biliary obstruction with cholangitis. ERCP failed due to surgically altered anatomy. Requesting IR review for percutaneous transhepatic cholangiography and biliary drainage.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref57', patientId: 'p93', specialty: 'Interventional Radiology', priority: 'Medium', reasonForReferral: 'Hepatocellular carcinoma with portal vein involvement. Unsuitable for surgical resection. Requesting IR review for TACE or SIRT assessment.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // General Surgery (3)
+  { id: 'ref58', patientId: 'p43', specialty: 'General Surgery', priority: 'High', reasonForReferral: 'Perforated viscus on erect CXR. Patient acutely unwell with peritonism. Requesting urgent surgical review for emergency laparotomy.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d2, comments: [{ id: 'rc21', text: 'Surgical review completed. Patient for emergency theatre within 1 hour. Consent obtained.', createdBy: 'Mr. Wilson', createdAt: d2 }] },
+  { id: 'ref59', patientId: 'p100', specialty: 'General Surgery', priority: 'Medium', reasonForReferral: 'Incarcerated inguinal hernia with signs of bowel obstruction. Requesting surgical review for assessment and possible emergency repair.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref60', patientId: 'p104', specialty: 'General Surgery', priority: 'Low', reasonForReferral: 'Symptomatic gallstones confirmed on ultrasound with two episodes of biliary colic. Requesting surgical review for consideration of elective cholecystectomy.', status: 'Pending', createdBy: 'Dr. Chen', createdAt: d8, updatedAt: d8, comments: [] },
+
+  // Nephrology (3)
+  { id: 'ref61', patientId: 'p2', specialty: 'Nephrology', priority: 'High', reasonForReferral: 'AKI stage 3 with oliguria <0.3ml/kg/h for 12 hours. Creatinine 542 from baseline 85. Potassium 6.8 with ECG changes. Requesting urgent nephrology review for possible haemodialysis.', status: 'Accepted', createdBy: 'Dr. Mitchell', createdAt: d3, updatedAt: d3, comments: [{ id: 'rc22', text: 'Nephrology reviewed. Urgent haemodiafiltration commenced via femoral Vascath. Monitoring in HDU.', createdBy: 'Dr. Okafor', createdAt: d3 }] },
+  { id: 'ref62', patientId: 'p47', specialty: 'Nephrology', priority: 'Medium', reasonForReferral: 'Rapidly progressive glomerulonephritis. Creatinine 380 and rising. Urinalysis shows RBC casts. ANCAs positive. Requesting nephrology review for renal biopsy and consideration of pulse steroids/cyclophosphamide.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref63', patientId: 'p72', specialty: 'Nephrology', priority: 'Low', reasonForReferral: 'CKD stage 4 (eGFR 18) with progressive decline. Requesting nephrology review for pre-dialysis education, AVF formation planning and renal replacement therapy decision.', status: 'Pending', createdBy: 'Nurse Adams', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Neurology (3)
+  { id: 'ref64', patientId: 'p16', specialty: 'Neurology', priority: 'High', reasonForReferral: 'Status epilepticus not responding to benzodiazepines. Now on IV levetiracetam and phenytoin load. Requesting urgent neurology review for further anti-epileptic therapy and EEG monitoring.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d1, updatedAt: d2, comments: [{ id: 'rc23', text: 'Neurology reviewed. Propofol infusion started for refractory status. EEG requested. ITU level care.', createdBy: 'Dr. Osei', createdAt: d2 }] },
+  { id: 'ref65', patientId: 'p38', specialty: 'Neurology', priority: 'Medium', reasonForReferral: 'Guillain-Barré syndrome suspected. Progressive ascending weakness over 5 days. NCS/EMG showing demyelinating pattern. Requesting neurology review for IVIG treatment and respiratory monitoring.', status: 'Pending', createdBy: 'Nurse Williams', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref66', patientId: 'p64', specialty: 'Neurology', priority: 'Medium', reasonForReferral: 'Multiple sclerosis relapse with rapidly worsening visual acuity and optic neuritis. Requesting neurology review for IV methylprednisolone and long-term disease-modifying therapy.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d8, updatedAt: d8, comments: [] },
+
+  // Neurosurgery (3)
+  { id: 'ref67', patientId: 'p25', specialty: 'Neurosurgery', priority: 'High', reasonForReferral: 'Extradural haematoma on CT head. GCS 12 and falling. Pupil asymmetry developing. Requesting urgent neurosurgical review for emergency craniotomy.', status: 'Accepted', createdBy: 'Dr. Mitchell', createdAt: d2, updatedAt: d2, comments: [{ id: 'rc24', text: 'Neurosurgery reviewed. Patient for emergency theatre. Craniotomy and evacuation performed.', createdBy: 'Mr. Patel', createdAt: d2 }] },
+  { id: 'ref68', patientId: 'p50', specialty: 'Neurosurgery', priority: 'Medium', reasonForReferral: 'Lumbar disc prolapse with cauda equina syndrome. Urinary retention and saddle anaesthesia. Requesting urgent neurosurgery review for emergency decompression.', status: 'Accepted', createdBy: 'Nurse Taylor', createdAt: d4, updatedAt: d5, comments: [] },
+  { id: 'ref69', patientId: 'p79', specialty: 'Neurosurgery', priority: 'Medium', reasonForReferral: 'Brain tumour on MRI - ring-enhancing lesion 3.5cm with significant oedema and midline shift. Requesting neurosurgery review for biopsy and craniotomy planning.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d7, updatedAt: d7, comments: [] },
+
+  // Oncology (3)
+  { id: 'ref70', patientId: 'p16', specialty: 'Oncology', priority: 'High', reasonForReferral: 'Hypercalcaemia of malignancy (calcium 3.8). Known breast cancer with extensive bone metastases. Requesting oncology review for bisphosphonate treatment and systemic therapy review.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d3, updatedAt: d4, comments: [{ id: 'rc25', text: 'Oncology reviewed. IV zoledronate given. Palliative care co-involved. Systemic therapy paused.', createdBy: 'Dr. Ahmed', createdAt: d4 }] },
+  { id: 'ref71', patientId: 'p44', specialty: 'Oncology', priority: 'Medium', reasonForReferral: 'Suspected cord compression - back pain with progressive lower limb weakness in known lymphoma patient. MRI spine shows epidural disease at T8. Requesting urgent oncology review for high-dose steroids and radiotherapy.', status: 'Pending', createdBy: 'Nurse Jackson', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref72', patientId: 'p68', specialty: 'Oncology', priority: 'Low', reasonForReferral: 'Newly diagnosed lung adenocarcinoma on biopsy (EGFR positive). Stage IIIB. Requesting oncology review for MDT discussion and targeted therapy initiation.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Ophthalmology (3)
+  { id: 'ref73', patientId: 'p6', specialty: 'Ophthalmology', priority: 'High', reasonForReferral: 'Acute angle closure glaucoma - red eye, IOP 52mmHg, corneal oedema. Patient in severe pain. Requesting urgent ophthalmology review for IOP reduction and laser iridotomy.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc26', text: 'Ophthalmology reviewed. IOP lowered with acetazolamide and timolol. Laser PI performed.', createdBy: 'Dr. James', createdAt: d1 }] },
+  { id: 'ref74', patientId: 'p38', specialty: 'Ophthalmology', priority: 'Medium', reasonForReferral: 'Sudden painless visual loss in left eye. Fundoscopy shows pale disc and cherry-red spot at macula - central retinal artery occlusion. Requesting ophthalmology review.', status: 'Pending', createdBy: 'Nurse Adams', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref75', patientId: 'p64', specialty: 'Ophthalmology', priority: 'Medium', reasonForReferral: 'Diabetic retinopathy with vitreous haemorrhage causing sudden visual deterioration. Requesting ophthalmology review for vitrectomy assessment.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d8, updatedAt: d8, comments: [] },
+
+  // Orthopaedics (3)
+  { id: 'ref76', patientId: 'p37', specialty: 'Orthopaedics', priority: 'High', reasonForReferral: 'Compartment syndrome right forearm following trauma. Tense swelling, pain out of proportion, paraesthesia in hand. Requesting urgent orthopaedics review for fasciotomy.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d2, comments: [{ id: 'rc27', text: 'Orthopaedics reviewed - confirmed compartment syndrome. Patient for emergency fasciotomy.', createdBy: 'Mr. Ahmed', createdAt: d2 }] },
+  { id: 'ref77', patientId: 'p57', specialty: 'Orthopaedics', priority: 'Medium', reasonForReferral: 'Prosthetic joint infection - raised CRP, swollen hot joint 2 years post-TKR. Requesting orthopaedics review for aspiration and consideration of revision surgery.', status: 'Pending', createdBy: 'Nurse Brown', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref78', patientId: 'p93', specialty: 'Orthopaedics', priority: 'Medium', reasonForReferral: 'Vertebral fracture at L2 in known myeloma patient. MRI shows extensive disease. Requesting orthopaedics review for vertebroplasty assessment.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Paediatrics (3)
+  { id: 'ref79', patientId: 'p1', specialty: 'Paediatrics', priority: 'High', reasonForReferral: 'Child 8 years old transferred from A&E with suspected meningococcal meningitis. Petechial rash, GCS 13, neck stiffness, photophobia. Requesting urgent paediatric review for LP and antibiotics.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc28', text: 'Paediatrics reviewed. IV ceftriaxone commenced. CT head done - LP performed. Awaiting CSF results.', createdBy: 'Dr. Singh', createdAt: d1 }] },
+  { id: 'ref80', patientId: 'p11', specialty: 'Paediatrics', priority: 'Medium', reasonForReferral: 'Diabetic ketoacidosis in 14-year-old. First presentation. pH 7.19, glucose 28. Requesting paediatric review for FRII management and diabetes nurse education.', status: 'Pending', createdBy: 'Nurse Williams', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref81', patientId: 'p25', specialty: 'Paediatrics', priority: 'Low', reasonForReferral: 'Failure to thrive in 2-year-old. Weight below 0.4th centile. Requesting paediatric dietitian and developmental review.', status: 'Pending', createdBy: 'Nurse Jackson', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Palliative Care (3)
+  { id: 'ref82', patientId: 'p25', specialty: 'Palliative Care', priority: 'High', reasonForReferral: 'End-stage pancreatic cancer with intractable pain (NRS 9/10). Current analgesia inadequate. Requesting palliative care review for pain management optimisation and goals of care discussion.', status: 'Accepted', createdBy: 'Dr. Mitchell', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc29', text: 'Palliative care reviewed. Syringe driver commenced. Family meeting arranged. DNACPR discussed and documented.', createdBy: 'Dr. Ford', createdAt: d3 }] },
+  { id: 'ref83', patientId: 'p29', specialty: 'Palliative Care', priority: 'Medium', reasonForReferral: 'End-stage COPD. Patient expressing wishes for comfort measures only. Requesting palliative care review for advanced care planning and symptom management.', status: 'Pending', createdBy: 'Nurse Adams', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref84', patientId: 'p79', specialty: 'Palliative Care', priority: 'Medium', reasonForReferral: 'Glioblastoma multiforme, progressive despite radiotherapy. Patient declining performance status. Requesting palliative care review for symptom control and discharge home planning with hospice input.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Psychiatry (3)
+  { id: 'ref85', patientId: 'p47', specialty: 'Psychiatry', priority: 'High', reasonForReferral: 'Serious suicide attempt (overdose, paracetamol and amitriptyline). Medically fit for psychiatric assessment. Requesting urgent psychiatry review for mental state assessment and risk management plan.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d2, updatedAt: d3, comments: [{ id: 'rc30', text: 'Psychiatry reviewed. Section 136 applied. Patient detained under MHA for inpatient psychiatric assessment.', createdBy: 'Dr. Kovacs', createdAt: d3 }] },
+  { id: 'ref86', patientId: 'p64', specialty: 'Psychiatry', priority: 'Medium', reasonForReferral: 'Delirium tremens day 3 of alcohol withdrawal. CIWA score 28. Hallucinations, agitation, tremor. Requesting psychiatry liaison review for benzodiazepine titration and detox monitoring.', status: 'Pending', createdBy: 'Nurse Brown', createdAt: d6, updatedAt: d6, comments: [] },
+  { id: 'ref87', patientId: 'p88', specialty: 'Psychiatry', priority: 'Low', reasonForReferral: 'Functional neurological disorder suspected. Dissociative seizures on video telemetry. No epileptiform discharges. Requesting psychiatry review for CBT referral and psychoeducation.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Rheumatology (3)
+  { id: 'ref88', patientId: 'p1', specialty: 'Rheumatology', priority: 'High', reasonForReferral: 'Acute septic arthritis of left knee - joint hot, swollen, WBC in synovial fluid >80,000. Requesting rheumatology review alongside orthopaedics for joint washout planning and antibiotic selection.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d3, updatedAt: d3, comments: [] },
+  { id: 'ref89', patientId: 'p38', specialty: 'Rheumatology', priority: 'Medium', reasonForReferral: 'Newly diagnosed SLE with nephritis (proteinuria 4g/24h, haematuria, creatinine rising). Requesting rheumatology review for renal biopsy co-ordination and immunosuppression planning.', status: 'Accepted', createdBy: 'Dr. Chen', createdAt: d6, updatedAt: d7, comments: [] },
+  { id: 'ref90', patientId: 'p72', specialty: 'Rheumatology', priority: 'Low', reasonForReferral: 'Ankylosing spondylitis with inadequate response to NSAIDs and sulfasalazine. Requesting rheumatology review for anti-TNF therapy assessment.', status: 'Pending', createdBy: 'Nurse Taylor', createdAt: d10, updatedAt: d10, comments: [] },
+
+  // Urology (3)
+  { id: 'ref91', patientId: 'p50', specialty: 'Urology', priority: 'High', reasonForReferral: 'Urosepsis with obstructed infected kidney. CT shows left hydronephrosis with calculus at PUJ. Requesting urgent urology review for emergency nephrostomy or ureteric stent.', status: 'Accepted', createdBy: 'Nurse Williams', createdAt: d1, updatedAt: d2, comments: [{ id: 'rc31', text: 'Urology reviewed. Ureteric stent inserted under GA. Patient responding to IV meropenem.', createdBy: 'Mr. Ahmed', createdAt: d2 }] },
+  { id: 'ref92', patientId: 'p79', specialty: 'Urology', priority: 'Medium', reasonForReferral: 'Haematuria with clot retention. Bladder washout ongoing. Suspected bladder cancer on cystoscopy (suspicious lesion). Requesting urology review for TURBT planning.', status: 'Pending', createdBy: 'Dr. Thompson', createdAt: d5, updatedAt: d5, comments: [] },
+  { id: 'ref93', patientId: 'p104', specialty: 'Urology', priority: 'Low', reasonForReferral: 'PSA 68 ng/mL with hard irregular prostate on DRE. Requesting urology review for TRUS biopsy and prostate cancer workup.', status: 'Pending', createdBy: 'Dr. Evans', createdAt: d9, updatedAt: d9, comments: [] },
+
+  // Vascular Surgery (3)
+  { id: 'ref94', patientId: 'p13', specialty: 'Vascular Surgery', priority: 'High', reasonForReferral: 'Acute limb ischaemia. Cold pulseless painful right leg, mottling to knee. Onset 4 hours. Requesting urgent vascular surgery review for embolectomy or bypass.', status: 'Accepted', createdBy: 'Dr. Thompson', createdAt: d1, updatedAt: d1, comments: [{ id: 'rc32', text: 'Vascular reviewed. Patient for urgent embolectomy. Heparin started. Theatre notified.', createdBy: 'Mr. Patel', createdAt: d1 }] },
+  { id: 'ref95', patientId: 'p47', specialty: 'Vascular Surgery', priority: 'High', reasonForReferral: 'Ruptured abdominal aortic aneurysm. CT shows 7.8cm AAA with retroperitoneal haematoma. Requesting emergency vascular surgery review - patient for EVAR or open repair.', status: 'Accepted', createdBy: 'Nurse Adams', createdAt: d3, updatedAt: d3, comments: [{ id: 'rc33', text: 'Vascular reviewed. For emergency EVAR. Theatre team assembled. Blood products requested.', createdBy: 'Mr. Patel', createdAt: d3 }] },
+  { id: 'ref96', patientId: 'p81', specialty: 'Vascular Surgery', priority: 'Medium', reasonForReferral: 'Critical limb ischaemia with non-healing ulcer on left great toe. ABPI 0.42. CT angiogram shows femoro-popliteal occlusion. Requesting vascular review for revascularisation options.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d7, updatedAt: d7, comments: [] }
+];
+
 // Initialize with sample data if empty
 export function initializeData(): void {
   if (!isBrowser) return;
@@ -3747,6 +3908,7 @@ export function initializeData(): void {
     setStorage(STORAGE_KEYS.patients, samplePatients);
     setStorage(STORAGE_KEYS.handoverNotes, sampleHandoverNotes);
     setStorage(STORAGE_KEYS.hospitalAtNight, sampleHospitalAtNight);
+    setStorage(STORAGE_KEYS.specialtyReferrals, sampleSpecialtyReferrals);
     localStorage.setItem(STORAGE_KEYS.initialized, 'true');
   }
 }
@@ -3914,6 +4076,50 @@ export function getPatientsWithLatestHandover(): (Patient & { latestHandover?: H
     ...patient,
     latestHandover: getLatestHandoverForPatient(patient.id)
   }));
+}
+
+// Specialty Referral functions
+export function getAllSpecialtyReferrals(): SpecialtyReferral[] {
+  return getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, [])
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export function getSpecialtyReferralById(id: string): SpecialtyReferral | undefined {
+  const referrals = getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, []);
+  return referrals.find(r => r.id === id);
+}
+
+export function getSpecialtyReferralsByPatient(patientId: string): SpecialtyReferral[] {
+  return getAllSpecialtyReferrals().filter(r => r.patientId === patientId);
+}
+
+export function createSpecialtyReferral(referral: SpecialtyReferral): SpecialtyReferral {
+  const referrals = getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, []);
+  referrals.push(referral);
+  setStorage(STORAGE_KEYS.specialtyReferrals, referrals);
+  return referral;
+}
+
+export function updateSpecialtyReferral(id: string, updates: Partial<SpecialtyReferral>): SpecialtyReferral | undefined {
+  const referrals = getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, []);
+  const index = referrals.findIndex(r => r.id === id);
+  if (index === -1) return undefined;
+  referrals[index] = { ...referrals[index], ...updates, updatedAt: new Date().toISOString() };
+  setStorage(STORAGE_KEYS.specialtyReferrals, referrals);
+  return referrals[index];
+}
+
+export function addCommentToReferral(id: string, comment: ReferralComment): SpecialtyReferral | undefined {
+  const referrals = getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, []);
+  const index = referrals.findIndex(r => r.id === id);
+  if (index === -1) return undefined;
+  referrals[index] = {
+    ...referrals[index],
+    comments: [...(referrals[index].comments || []), comment],
+    updatedAt: new Date().toISOString()
+  };
+  setStorage(STORAGE_KEYS.specialtyReferrals, referrals);
+  return referrals[index];
 }
 
 // Reset data (useful for demo)
