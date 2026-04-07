@@ -4122,6 +4122,20 @@ export function addCommentToReferral(id: string, comment: ReferralComment): Spec
   return referrals[index];
 }
 
+export function markCommentSeen(referralId: string, commentId: string): SpecialtyReferral | undefined {
+  const referrals = getStorage<SpecialtyReferral[]>(STORAGE_KEYS.specialtyReferrals, []);
+  const index = referrals.findIndex(r => r.id === referralId);
+  if (index === -1) return undefined;
+  referrals[index] = {
+    ...referrals[index],
+    comments: referrals[index].comments.map(c =>
+      c.id === commentId ? { ...c, seenAt: new Date().toISOString() } : c
+    ),
+  };
+  setStorage(STORAGE_KEYS.specialtyReferrals, referrals);
+  return referrals[index];
+}
+
 // Reset data (useful for demo)
 export function resetToSampleData(): void {
   if (!isBrowser) return;

@@ -97,6 +97,7 @@ export interface ReferralComment {
   text: string;
   createdBy: string;
   createdAt: string;
+  seenAt?: string;
 }
 
 export interface SpecialtyReferral {

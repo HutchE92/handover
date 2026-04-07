@@ -28,10 +28,12 @@ function ReferralCard({
   referral,
   onStatusChange,
   onAddComment,
+  onMarkCommentSeen,
 }: {
   referral: SpecialtyReferralWithPatient;
   onStatusChange: (id: string, status: ReferralStatus) => void;
   onAddComment: (id: string, comment: { text: string; createdBy: string }) => void;
+  onMarkCommentSeen: (referralId: string, commentId: string) => void;
 }) {
   const [showHandover, setShowHandover] = useState(false);
   const [showCommentsFeed, setShowCommentsFeed] = useState(false);
@@ -217,11 +219,27 @@ function ReferralCard({
             ) : (
               sortedComments.map(c => (
                 <div key={c.id} className="bg-white rounded-lg p-3 border border-gray-200">
-                  <div className="flex justify-between items-center mb-1.5">
+                  <div className="flex justify-between items-start mb-1.5">
                     <span className="text-sm font-semibold text-gray-800">{c.createdBy}</span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(c.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="text-right ml-3 shrink-0">
+                      <div className="text-xs text-gray-400">
+                        {new Date(c.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="mt-1">
+                        {c.seenAt ? (
+                          <span className="text-xs text-green-600 font-medium">
+                            Marked as seen at {new Date(c.seenAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onMarkCommentSeen(referral.id, c.id)}
+                            className="text-xs text-gray-400 hover:text-teal-600 underline transition-colors"
+                          >
+                            Mark as seen
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <p className="text-sm text-gray-700">{c.text}</p>
                 </div>
@@ -322,6 +340,7 @@ function FiltersBar({
   specialtyFilter, setSpecialtyFilter,
   priorityFilter, setPriorityFilter,
   statusFilter, setStatusFilter,
+  commentsFilter, setCommentsFilter,
   sortOption, setSortOption,
 }: {
   specialtyFilter?: ReferralSpecialty[];
@@ -330,6 +349,8 @@ function FiltersBar({
   setPriorityFilter: (p: ReferralPriority[]) => void;
   statusFilter: ReferralStatus[];
   setStatusFilter: (s: ReferralStatus[]) => void;
+  commentsFilter: boolean;
+  setCommentsFilter: (f: boolean) => void;
   sortOption: SortOption;
   setSortOption: (s: SortOption) => void;
 }) {
@@ -390,6 +411,19 @@ function FiltersBar({
               >{s}</button>
             ))}
           </div>
+        </div>
+
+        {/* Comments filter */}
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-1.5">Comments</label>
+          <button
+            onClick={() => setCommentsFilter(!commentsFilter)}
+            className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+              commentsFilter ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            New comments
+          </button>
         </div>
 
         {/* Specialty multi-select (By Ward tab only) */}
@@ -466,9 +500,9 @@ function FiltersBar({
       </div>
 
       {/* Clear filters */}
-      {(priorityFilter.length > 0 || statusFilter.length > 0 || (specialtyFilter?.length ?? 0) > 0) && (
+      {(priorityFilter.length > 0 || statusFilter.length > 0 || (specialtyFilter?.length ?? 0) > 0 || commentsFilter) && (
         <button
-          onClick={() => { setPriorityFilter([]); setStatusFilter([]); setSpecialtyFilter?.([]); }}
+          onClick={() => { setPriorityFilter([]); setStatusFilter([]); setSpecialtyFilter?.([]); setCommentsFilter(false); }}
           className="text-sm text-teal-600 hover:text-teal-700 font-medium"
         >
           Clear filters
@@ -492,6 +526,8 @@ export default function ReferralsPage() {
   const [specStatusFilter, setSpecStatusFilter] = useState<ReferralStatus[]>([]);
   const [specSort, setSpecSort] = useState<SortOption>('priority');
 
+  const [specCommentsFilter, setSpecCommentsFilter] = useState(false);
+
   // By Patient tab state
   const [selectedWard, setSelectedWard] = useState<string>('');
   const [defaultWard, setDefaultWard] = useState<string>('');
@@ -499,6 +535,7 @@ export default function ReferralsPage() {
   const [patPriorityFilter, setPatPriorityFilter] = useState<ReferralPriority[]>([]);
   const [patStatusFilter, setPatStatusFilter] = useState<ReferralStatus[]>([]);
   const [patSort, setPatSort] = useState<SortOption>('priority');
+  const [patCommentsFilter, setPatCommentsFilter] = useState(false);
 
   // Persist default specialty
   useEffect(() => {
@@ -554,6 +591,11 @@ export default function ReferralsPage() {
     refresh();
   }, [refresh]);
 
+  const handleMarkCommentSeen = useCallback((referralId: string, commentId: string) => {
+    storage.markCommentSeen(referralId, commentId);
+    refresh();
+  }, [refresh]);
+
   // Unique wards from patients who have referrals
   const referralPatientIds = new Set(referrals.map(r => r.patientId));
   const availableWards = [...new Set(
@@ -572,12 +614,14 @@ export default function ReferralsPage() {
     priority: ReferralPriority[],
     status: ReferralStatus[],
     sort: SortOption,
-    specFilter?: ReferralSpecialty[]
+    specFilter?: ReferralSpecialty[],
+    newCommentsOnly?: boolean
   ) {
     return list
       .filter(r => priority.length === 0 || priority.includes(r.priority))
       .filter(r => status.length === 0 || status.includes(r.status))
       .filter(r => !specFilter?.length || specFilter.includes(r.specialty))
+      .filter(r => !newCommentsOnly || (r.comments || []).some(c => !c.seenAt))
       .sort((a, b) => {
         if (sort === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
         if (sort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -588,14 +632,14 @@ export default function ReferralsPage() {
   // By Specialty filtered list
   const specReferrals = applyFiltersAndSort(
     activeSpecialty ? referrals.filter(r => r.specialty === activeSpecialty) : [],
-    specPriorityFilter, specStatusFilter, specSort
+    specPriorityFilter, specStatusFilter, specSort, undefined, specCommentsFilter
   );
 
   // By Patient filtered list
   const wardPatients = patients.filter(p => p.ward === activeWard);
   const wardReferrals = applyFiltersAndSort(
     referrals.filter(r => wardPatients.some(p => p.id === r.patientId)),
-    patPriorityFilter, patStatusFilter, patSort, patSpecialtyFilter
+    patPriorityFilter, patStatusFilter, patSort, patSpecialtyFilter, patCommentsFilter
   );
 
   if (loading) {
@@ -699,6 +743,8 @@ export default function ReferralsPage() {
                 setPriorityFilter={setSpecPriorityFilter}
                 statusFilter={specStatusFilter}
                 setStatusFilter={setSpecStatusFilter}
+                commentsFilter={specCommentsFilter}
+                setCommentsFilter={setSpecCommentsFilter}
                 sortOption={specSort}
                 setSortOption={setSpecSort}
               />
@@ -714,6 +760,7 @@ export default function ReferralsPage() {
                       referral={r}
                       onStatusChange={handleStatusChange}
                       onAddComment={handleAddComment}
+                      onMarkCommentSeen={handleMarkCommentSeen}
                     />
                   ))}
                 </div>
@@ -772,6 +819,8 @@ export default function ReferralsPage() {
                 setPriorityFilter={setPatPriorityFilter}
                 statusFilter={patStatusFilter}
                 setStatusFilter={setPatStatusFilter}
+                commentsFilter={patCommentsFilter}
+                setCommentsFilter={setPatCommentsFilter}
                 sortOption={patSort}
                 setSortOption={setPatSort}
               />
@@ -787,6 +836,7 @@ export default function ReferralsPage() {
                       referral={r}
                       onStatusChange={handleStatusChange}
                       onAddComment={handleAddComment}
+                      onMarkCommentSeen={handleMarkCommentSeen}
                     />
                   ))}
                 </div>
