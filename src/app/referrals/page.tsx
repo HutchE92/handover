@@ -346,8 +346,8 @@ function FiltersBar({
   statusFilter, setStatusFilter,
   sortOption, setSortOption,
 }: {
-  specialtyFilter: ReferralSpecialty | null;
-  setSpecialtyFilter: (s: ReferralSpecialty | null) => void;
+  specialtyFilter?: ReferralSpecialty[];
+  setSpecialtyFilter?: (s: ReferralSpecialty[]) => void;
   priorityFilter: ReferralPriority[];
   setPriorityFilter: (p: ReferralPriority[]) => void;
   statusFilter: ReferralStatus[];
@@ -355,10 +355,21 @@ function FiltersBar({
   sortOption: SortOption;
   setSortOption: (s: SortOption) => void;
 }) {
+  const [specDropdownOpen, setSpecDropdownOpen] = useState(false);
+
   const priorityColors: Record<ReferralPriority, string> = {
     High: 'bg-red-600 text-white',
     Medium: 'bg-amber-500 text-white',
     Low: 'bg-green-600 text-white',
+  };
+
+  const toggleSpecialty = (s: ReferralSpecialty) => {
+    if (!setSpecialtyFilter || !specialtyFilter) return;
+    if (specialtyFilter.includes(s)) {
+      setSpecialtyFilter(specialtyFilter.filter(x => x !== s));
+    } else {
+      setSpecialtyFilter([...specialtyFilter, s]);
+    }
   };
 
   return (
@@ -403,18 +414,57 @@ function FiltersBar({
           </div>
         </div>
 
-        {/* Specialty (additional filter on By Patient tab) */}
-        {setSpecialtyFilter && (
-          <div>
+        {/* Specialty multi-select (By Ward tab only) */}
+        {setSpecialtyFilter && specialtyFilter !== undefined && (
+          <div className="relative">
             <label className="block text-sm font-bold text-gray-700 mb-1.5">Speciality</label>
-            <select
-              value={specialtyFilter ?? ''}
-              onChange={e => setSpecialtyFilter(e.target.value ? e.target.value as ReferralSpecialty : null)}
-              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-teal-500"
+            <button
+              onClick={() => setSpecDropdownOpen(!specDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50 min-w-[160px] justify-between"
             >
-              <option value="">All Specialities</option>
-              {REFERRAL_SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+              <span className="text-gray-700">
+                {specialtyFilter.length === 0
+                  ? 'All Specialities'
+                  : specialtyFilter.length === 1
+                    ? specialtyFilter[0]
+                    : `${specialtyFilter.length} selected`}
+              </span>
+              <svg className={`w-4 h-4 text-gray-500 transition-transform ${specDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {specDropdownOpen && (
+              <div className="absolute z-20 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                <div className="p-2 border-b border-gray-100 flex justify-between items-center">
+                  <button
+                    onClick={() => { setSpecialtyFilter([]); }}
+                    className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                  >
+                    Clear all
+                  </button>
+                  <button
+                    onClick={() => setSpecDropdownOpen(false)}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Done
+                  </button>
+                </div>
+                {REFERRAL_SPECIALTIES.map(s => (
+                  <label
+                    key={s}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 cursor-pointer text-sm text-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={specialtyFilter.includes(s)}
+                      onChange={() => toggleSpecialty(s)}
+                      className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    {s}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -438,9 +488,9 @@ function FiltersBar({
       </div>
 
       {/* Clear filters */}
-      {(priorityFilter.length > 0 || statusFilter.length > 0 || specialtyFilter) && (
+      {(priorityFilter.length > 0 || statusFilter.length > 0 || (specialtyFilter?.length ?? 0) > 0) && (
         <button
-          onClick={() => { setPriorityFilter([]); setStatusFilter([]); setSpecialtyFilter(null); }}
+          onClick={() => { setPriorityFilter([]); setStatusFilter([]); setSpecialtyFilter?.([]); }}
           className="text-sm text-teal-600 hover:text-teal-700 font-medium"
         >
           Clear filters
@@ -467,7 +517,7 @@ export default function ReferralsPage() {
   // By Patient tab state
   const [selectedWard, setSelectedWard] = useState<string>('');
   const [defaultWard, setDefaultWard] = useState<string>('');
-  const [patSpecialtyFilter, setPatSpecialtyFilter] = useState<ReferralSpecialty | null>(null);
+  const [patSpecialtyFilter, setPatSpecialtyFilter] = useState<ReferralSpecialty[]>([]);
   const [patPriorityFilter, setPatPriorityFilter] = useState<ReferralPriority[]>([]);
   const [patStatusFilter, setPatStatusFilter] = useState<ReferralStatus[]>([]);
   const [patSort, setPatSort] = useState<SortOption>('priority');
@@ -544,12 +594,12 @@ export default function ReferralsPage() {
     priority: ReferralPriority[],
     status: ReferralStatus[],
     sort: SortOption,
-    specFilter?: ReferralSpecialty | null
+    specFilter?: ReferralSpecialty[]
   ) {
     return list
       .filter(r => priority.length === 0 || priority.includes(r.priority))
       .filter(r => status.length === 0 || status.includes(r.status))
-      .filter(r => !specFilter || r.specialty === specFilter)
+      .filter(r => !specFilter?.length || specFilter.includes(r.specialty))
       .sort((a, b) => {
         if (sort === 'priority') return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
         if (sort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -667,8 +717,6 @@ export default function ReferralsPage() {
           ) : (
             <>
               <FiltersBar
-                specialtyFilter={null}
-                setSpecialtyFilter={() => {}}
                 priorityFilter={specPriorityFilter}
                 setPriorityFilter={setSpecPriorityFilter}
                 statusFilter={specStatusFilter}
