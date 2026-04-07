@@ -23,101 +23,6 @@ type SubTab = 'bySpecialty' | 'byPatient';
 type SortOption = 'priority' | 'oldest' | 'newest';
 const PRIORITY_ORDER: Record<ReferralPriority, number> = { High: 0, Medium: 1, Low: 2 };
 
-// ─── Add Comment Modal ────────────────────────────────────────────────────────
-function AddCommentModal({
-  isOpen, onClose, onSubmit
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (c: { text: string; createdBy: string }) => void;
-}) {
-  const [text, setText] = useState('');
-  const [createdBy, setCreatedBy] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) { setError('Please enter a comment'); return; }
-    if (!createdBy.trim()) { setError('Please enter your name'); return; }
-    onSubmit({ text: text.trim(), createdBy: createdBy.trim() });
-    setText(''); setCreatedBy(''); setError(null); onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Add Comment</h3>
-          <div className="text-sm text-gray-500 mb-4">{new Date().toLocaleString()}</div>
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm mb-4">{error}</div>}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
-              <input type="text" value={createdBy} onChange={e => setCreatedBy(e.target.value)} placeholder="e.g., Dr. Smith"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Comment *</label>
-              <textarea value={text} onChange={e => setText(e.target.value)} rows={4} placeholder="Enter your comment..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button type="submit" className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">Add Comment</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── View Comments Modal ──────────────────────────────────────────────────────
-function ViewCommentsModal({
-  isOpen, comments, onClose
-}: {
-  isOpen: boolean;
-  comments: ReferralComment[];
-  onClose: () => void;
-}) {
-  if (!isOpen) return null;
-  const sorted = [...comments].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-gray-900">All Comments ({comments.length})</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 space-y-3">
-            {sorted.length === 0 ? <p className="text-gray-500 text-center py-4">No comments yet</p> : sorted.map(c => (
-              <div key={c.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-medium text-gray-900 text-sm">{c.createdBy}</span>
-                  <span className="text-xs text-gray-500">{new Date(c.createdAt).toLocaleString()}</span>
-                </div>
-                <p className="text-sm text-gray-700">{c.text}</p>
-              </div>
-            ))}
-          </div>
-          <div className="p-4 border-t border-gray-200">
-            <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Referral Card ────────────────────────────────────────────────────────────
 function ReferralCard({
   referral,
@@ -129,8 +34,10 @@ function ReferralCard({
   onAddComment: (id: string, comment: { text: string; createdBy: string }) => void;
 }) {
   const [showHandover, setShowHandover] = useState(false);
-  const [showComments, setShowComments] = useState(false);
-  const [showAddComment, setShowAddComment] = useState(false);
+  const [showCommentsFeed, setShowCommentsFeed] = useState(false);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [newCommentBy, setNewCommentBy] = useState('');
+  const [newCommentError, setNewCommentError] = useState<string | null>(null);
 
   const priorityColors: Record<ReferralPriority, string> = {
     High: 'bg-red-500 text-white border-red-600',
@@ -147,6 +54,18 @@ function ReferralCard({
 
   const patient = referral.patient;
   const handover = referral.latestHandover;
+  const commentCount = referral.comments?.length || 0;
+  const sortedComments = [...(referral.comments || [])].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  const handleSubmitComment = () => {
+    if (!newCommentBy.trim()) { setNewCommentError('Please enter your name'); return; }
+    if (!newCommentText.trim()) { setNewCommentError('Please enter a comment'); return; }
+    setNewCommentError(null);
+    onAddComment(referral.id, { text: newCommentText.trim(), createdBy: newCommentBy.trim() });
+    setNewCommentText('');
+  };
 
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
@@ -212,7 +131,7 @@ function ReferralCard({
         </div>
 
         {/* Actions row */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {/* Outcome / Status change */}
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-xs font-medium text-gray-600 mr-1">Outcome:</span>
@@ -236,49 +155,119 @@ function ReferralCard({
             )}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            {/* Comments */}
+          <div className="ml-auto flex items-center gap-4">
+            {/* Comments toggle */}
             <button
-              onClick={() => setShowComments(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+              onClick={() => setShowCommentsFeed(!showCommentsFeed)}
+              className="flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              {referral.comments?.length || 0} comment{(referral.comments?.length || 0) !== 1 ? 's' : ''}
+              {showCommentsFeed ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                  Hide Comments
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {commentCount} Comment{commentCount !== 1 ? 's' : ''}
+                </>
+              )}
             </button>
+
+            {/* Handover toggle */}
             <button
-              onClick={() => setShowAddComment(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-teal-700 bg-teal-50 rounded border border-teal-200 hover:bg-teal-100 transition-colors"
+              onClick={() => setShowHandover(!showHandover)}
+              className="flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              + Comment
+              {showHandover ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                  Hide Handover
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Show Handover
+                </>
+              )}
             </button>
-            {/* Toggle handover */}
-            {handover && (
-              <button
-                onClick={() => setShowHandover(!showHandover)}
-                className="flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700 font-medium"
-              >
-                {showHandover ? (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                    Hide Handover
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Show Handover
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Comments feed */}
+      {showCommentsFeed && (
+        <div className="border-t border-gray-200 bg-gray-50 p-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">
+            Comments{commentCount > 0 ? ` (${commentCount})` : ''}
+          </h4>
+
+          {/* Feed — oldest to newest */}
+          <div className="space-y-3 mb-4">
+            {sortedComments.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No comments yet — be the first to add one below.</p>
+            ) : (
+              sortedComments.map(c => (
+                <div key={c.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-sm font-semibold text-gray-800">{c.createdBy}</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(c.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700">{c.text}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Add comment form */}
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add a comment</p>
+            {newCommentError && (
+              <p className="text-xs text-red-600">{newCommentError}</p>
+            )}
+            <div className="flex gap-3">
+              <div className="w-40 shrink-0">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Your Name *</label>
+                <input
+                  type="text"
+                  value={newCommentBy}
+                  onChange={e => { setNewCommentBy(e.target.value); setNewCommentError(null); }}
+                  placeholder="e.g., Dr. Smith"
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Comment *</label>
+                <textarea
+                  value={newCommentText}
+                  onChange={e => { setNewCommentText(e.target.value); setNewCommentError(null); }}
+                  rows={2}
+                  placeholder="Enter your comment..."
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmitComment}
+                className="px-4 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 font-medium"
+              >
+                Add Comment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Handover — SBAR 4-column layout */}
       {showHandover && handover && (
@@ -324,17 +313,6 @@ function ReferralCard({
           <p className="text-sm text-gray-500 italic">No handover notes available for this patient</p>
         </div>
       )}
-
-      <ViewCommentsModal
-        isOpen={showComments}
-        comments={referral.comments || []}
-        onClose={() => setShowComments(false)}
-      />
-      <AddCommentModal
-        isOpen={showAddComment}
-        onClose={() => setShowAddComment(false)}
-        onSubmit={(c) => { onAddComment(referral.id, c); setShowAddComment(false); }}
-      />
     </div>
   );
 }
