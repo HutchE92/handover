@@ -34,7 +34,9 @@ function setStorage<T>(key: string, value: T): void {
 // Date helpers
 const today = new Date().toISOString().split('T')[0];
 const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const apr14 = '2026-04-14';
+const apr15 = '2026-04-15';
+const apr16 = '2026-04-16';
 
 // Comprehensive sample demo data - 55 patients across 8 wards
 const samplePatients: Patient[] = [
@@ -3245,7 +3247,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han1',
     patientId: 'p5',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }, { date: apr15, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR'],
     reasonForReview: 'Deteriorating heart failure. Needs senior review for escalation of diuretic therapy. May need IV furosemide.',
@@ -3267,7 +3269,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han2',
     patientId: 'p8',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR', 'SHO'],
     reasonForReview: 'NEWS 6 - sepsis secondary to UTI. May need escalation if not responding to antibiotics.',
@@ -3282,7 +3284,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han3',
     patientId: 'p34',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR'],
     reasonForReview: 'Acute liver failure - paracetamol OD. Needs ongoing monitoring and possible transfer to liver unit.',
@@ -3304,7 +3306,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han4',
     patientId: 'p31',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR'],
     reasonForReview: 'Post variceal banding - monitor for re-bleeding. Check Hb at 22:00.',
@@ -3320,7 +3322,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han5',
     patientId: 'p2',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SHO', 'SpR'],
     reasonForReview: 'Review U&Es and fluid status. May need IV diuretics if not responding to oral. AKI improving but needs monitoring.',
@@ -3335,7 +3337,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han6',
     patientId: 'p50',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SHO'],
     reasonForReview: 'New PE post THR. Started anticoagulation. Monitor for deterioration.',
@@ -3351,7 +3353,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han7',
     patientId: 'p1',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO'],
     reasonForReview: 'Check evening observations and review oxygen requirements. May need O2 adjustment.',
@@ -3366,7 +3368,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han8',
     patientId: 'p6',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO'],
     reasonForReview: 'DKA - check ketones and glucose at 22:00. May need FRII adjustment.',
@@ -3381,7 +3383,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han9',
     patientId: 'p13',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO'],
     reasonForReview: 'PE on treatment. Check stability and review anticoagulation plan.',
@@ -3397,7 +3399,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han10',
     patientId: 'p11',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['FY1'],
     reasonForReview: 'Acute asthma - review PEF and consider stepping down oxygen if improving.',
@@ -3412,7 +3414,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han11',
     patientId: 'p16',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'Low',
     assignedRoles: ['FY1'],
     reasonForReview: 'Gastroenteritis - check fluid balance and consider discharge tomorrow if tolerating diet.',
@@ -3427,7 +3429,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han12',
     patientId: 'p43',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'Low',
     assignedRoles: ['FY1'],
     reasonForReview: 'Post appendicectomy day 1 - routine bloods check. Discharge planning if well.',
@@ -3443,7 +3445,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han13',
     patientId: 'p25',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }, { date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['Nurse'],
     reasonForReview: 'Palliative care - syringe driver check. PRN medications may be needed overnight.',
@@ -3458,7 +3460,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han14',
     patientId: 'p37',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['Nurse', 'FY1'],
     reasonForReview: 'Delirious patient - may need PRN sedation. Regular reorientation and safety checks.',
@@ -3473,7 +3475,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han15',
     patientId: 'p29',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['Nurse', 'SpR'],
     reasonForReview: 'End-stage COPD - comfort care. May need PRN morphine for breathlessness.',
@@ -3496,7 +3498,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han16',
     patientId: 'p38',
-    reviewDates: [{ date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['Discharge'],
     reasonForReview: 'Post hip fracture - needs care package arranged before discharge. Social worker involved.',
@@ -3511,7 +3513,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han17',
     patientId: 'p40',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }, { date: apr15, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['Discharge'],
     reasonForReview: 'Social admission - waiting for care package and home modifications. OT assessment complete.',
@@ -3527,7 +3529,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han18',
     patientId: 'p44',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SHO', 'SpR'],
     reasonForReview: 'Bile leak post cholecystectomy. ERCP tomorrow - monitor for sepsis overnight.',
@@ -3542,7 +3544,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han19',
     patientId: 'p21',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }, { date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR'],
     reasonForReview: 'Infective endocarditis - on IV antibiotics. Monitor for embolic phenomena.',
@@ -3557,7 +3559,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han20',
     patientId: 'p47',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO', 'FY1'],
     reasonForReview: 'Awaiting emergency appendicectomy - may go to theatre late. Needs pre-op bloods and sliding scale.',
@@ -3573,7 +3575,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han21',
     patientId: 'p60',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }, { date: apr15, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR', 'SHO'],
     reasonForReview: 'Alcohol withdrawal - CIWA score rising. At risk of seizures. Previous history of DTs.',
@@ -3595,7 +3597,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han22',
     patientId: 'p72',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR'],
     reasonForReview: 'Dilated cardiomyopathy EF 25%. On IV diuretics. May need inotropic support if deteriorates.',
@@ -3610,7 +3612,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han23',
     patientId: 'p79',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SpR', 'Nurse'],
     reasonForReview: 'End-stage respiratory failure. For comfort care. May need PRN opioids for distress.',
@@ -3632,7 +3634,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han24',
     patientId: 'p93',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SHO', 'SpR'],
     reasonForReview: 'Anastomotic leak post gastrectomy - septic. May need return to theatre overnight.',
@@ -3647,7 +3649,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han25',
     patientId: 'p100',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }, { date: apr16, completedAt: undefined }],
     priority: 'High',
     assignedRoles: ['SHO'],
     reasonForReview: 'Infected TKR post-washout. Monitor temperature and inflammatory markers overnight.',
@@ -3662,7 +3664,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han26',
     patientId: 'p68',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO'],
     reasonForReview: 'Complete heart block with temporary pacing wire. Check capture threshold at 22:00.',
@@ -3677,7 +3679,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han27',
     patientId: 'p88',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr15, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['FY1', 'Nurse'],
     reasonForReview: 'Delirious elderly patient - may need PRN sedation if becoming distressed or unsafe.',
@@ -3692,7 +3694,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han28',
     patientId: 'p81',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr16, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO', 'SpR'],
     reasonForReview: 'Post OGD for bleeding ulcer. Monitor for re-bleeding. Check Hb at midnight.',
@@ -3707,7 +3709,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han29',
     patientId: 'p64',
-    reviewDates: [{ date: today, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }],
     priority: 'Low',
     assignedRoles: ['FY1'],
     reasonForReview: 'Paracetamol overdose - on NAC infusion. Routine bloods check at 04:00.',
@@ -3722,7 +3724,7 @@ const sampleHospitalAtNight: HospitalAtNightEntry[] = [
   {
     id: 'han30',
     patientId: 'p104',
-    reviewDates: [{ date: today, completedAt: undefined }, { date: tomorrow, completedAt: undefined }],
+    reviewDates: [{ date: apr14, completedAt: undefined }, { date: apr16, completedAt: undefined }],
     priority: 'Medium',
     assignedRoles: ['SHO'],
     reasonForReview: 'Post cauda equina decompression - monitor neurology and bladder function overnight.',
