@@ -8,7 +8,10 @@ import {
   SpecialtyReferral,
   ReferralStatus,
   ReferralPriority,
-  PatientTask,
+  PatientTaskWithPatient,
+  TaskStatus,
+  TaskRole,
+  TaskComment,
   formatNhsNumber,
   calculateAge,
   getNewsScoreColor,
@@ -16,8 +19,10 @@ import {
 } from '@/lib/types';
 import { usePatient, useHandoverNotes, useHospitalAtNightByPatient, useSpecialtyReferralsByPatient, useTasksByPatient } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePatientId } from '@/lib/useRouteParams';
+import { v4 as uuidv4 } from 'uuid';
+import { TaskCard } from '@/components/TaskCard';
 
 export default function PatientDetailClient() {
   const router = useRouter();
@@ -27,7 +32,33 @@ export default function PatientDetailClient() {
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes(patientId);
   const { entries: oohEntries, loading: oohLoading } = useHospitalAtNightByPatient(patientId);
   const { referrals: referralEntries, loading: referralsLoading } = useSpecialtyReferralsByPatient(patientId);
-  const { tasks: taskEntries, loading: tasksLoading } = useTasksByPatient(patientId);
+  const { tasks: taskEntries, loading: tasksLoading, refresh: refreshTasks } = useTasksByPatient(patientId);
+
+  const handleTaskStatusChange = useCallback((id: string, status: TaskStatus) => {
+    storage.updateTask(id, { status, updatedAt: new Date().toISOString() });
+    refreshTasks();
+  }, [refreshTasks]);
+
+  const handleTaskReassign = useCallback((id: string, roles: TaskRole[]) => {
+    storage.updateTask(id, { assignedTo: roles, updatedAt: new Date().toISOString() });
+    refreshTasks();
+  }, [refreshTasks]);
+
+  const handleTaskAddComment = useCallback((id: string, comment: { text: string; createdBy: string }) => {
+    const newComment: TaskComment = {
+      id: uuidv4(),
+      text: comment.text,
+      createdBy: comment.createdBy,
+      createdAt: new Date().toISOString(),
+    };
+    storage.addCommentToTask(id, newComment);
+    refreshTasks();
+  }, [refreshTasks]);
+
+  const handleTaskMarkCommentSeen = useCallback((taskId: string, commentId: string) => {
+    storage.markTaskCommentSeen(taskId, commentId);
+    refreshTasks();
+  }, [refreshTasks]);
 
   const [discharging, setDischarging] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -213,7 +244,7 @@ export default function PatientDetailClient() {
 
       {/* Active Tasks */}
       {(() => {
-        const activeTasks = taskEntries.filter(t => t.status === 'New' || t.status === 'In Progress');
+        const activeTasks = (taskEntries as PatientTaskWithPatient[]).map(t => ({ ...t, patient: patient ?? undefined })).filter(t => t.status === 'New' || t.status === 'In Progress');
         return (
           <div id="active-tasks" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
             <div className="p-6 border-b border-gray-200">
@@ -249,7 +280,16 @@ export default function PatientDetailClient() {
                       const p: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
                       return (p[a.priority] ?? 1) - (p[b.priority] ?? 1);
                     })
-                    .map(task => <PatientTaskCard key={task.id} task={task} />)
+                    .map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onStatusChange={handleTaskStatusChange}
+                        onReassign={handleTaskReassign}
+                        onAddComment={handleTaskAddComment}
+                        onMarkCommentSeen={handleTaskMarkCommentSeen}
+                      />
+                    ))
                 )}
               </div>
             )}
@@ -259,7 +299,7 @@ export default function PatientDetailClient() {
 
       {/* Task History */}
       {(() => {
-        const completedTasks = taskEntries.filter(t => t.status === 'Complete');
+        const completedTasks = (taskEntries as PatientTaskWithPatient[]).map(t => ({ ...t, patient: patient ?? undefined })).filter(t => t.status === 'Complete');
         return (
           <div id="task-history" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
             <div className="p-6 border-b border-gray-200">
@@ -289,7 +329,16 @@ export default function PatientDetailClient() {
                 ) : (
                   completedTasks
                     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                    .map(task => <PatientTaskCard key={task.id} task={task} />)
+                    .map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onStatusChange={handleTaskStatusChange}
+                        onReassign={handleTaskReassign}
+                        onAddComment={handleTaskAddComment}
+                        onMarkCommentSeen={handleTaskMarkCommentSeen}
+                      />
+                    ))
                 )}
               </div>
             )}
@@ -506,51 +555,6 @@ export default function PatientDetailClient() {
           onClose={() => setReferralCommentsEntry(null)}
         />
       )}
-    </div>
-  );
-}
-
-// Patient Task Card Component (read-only view for patient detail page)
-function PatientTaskCard({ task }: { task: PatientTask }) {
-  const priorityColors: Record<string, string> = {
-    High: 'bg-red-500 text-white border-red-600',
-    Medium: 'bg-amber-500 text-white border-amber-600',
-    Low: 'bg-green-500 text-white border-green-600',
-  };
-  const statusColors: Record<string, string> = {
-    New: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    'In Progress': 'bg-amber-100 text-amber-800 border-amber-300',
-    Complete: 'bg-green-100 text-green-800 border-green-300',
-  };
-
-  return (
-    <div className="p-4">
-      <div className="flex flex-wrap items-center gap-2 mb-2">
-        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border-2 ${priorityColors[task.priority]}`}>
-          {task.priority}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${statusColors[task.status]}`}>
-          {task.status}
-        </span>
-        <span className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-0.5">
-          {task.assignedTo.join(', ')}
-        </span>
-        {(task.dueDate || task.dueTime) && (
-          <span className="text-xs text-gray-500">
-            Due: {task.dueDate && new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}{task.dueTime && ` at ${task.dueTime}`}
-          </span>
-        )}
-        {task.comments && task.comments.length > 0 && (
-          <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            {task.comments.length} comment{task.comments.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-      <p className="text-sm text-gray-700 bg-gray-50 rounded p-2">{task.taskDetails}</p>
-      <div className="text-xs text-gray-400 mt-1">Created by {task.createdBy} on {new Date(task.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
     </div>
   );
 }
