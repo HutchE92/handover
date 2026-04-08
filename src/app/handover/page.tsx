@@ -685,7 +685,7 @@ export default function HandoverListPage() {
                       {/* Active Tasks Indicator */}
                       {getActiveTasks(patient.id).length > 0 && (
                         <button
-                          onClick={() => { window.location.href = `/patients/${patient.id}`; }}
+                          onClick={() => { window.location.href = `/patients/${patient.id}#active-tasks`; }}
                           className="mt-2 flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-800 border border-indigo-300 rounded text-xs font-medium hover:bg-indigo-200 transition-colors print:hidden"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

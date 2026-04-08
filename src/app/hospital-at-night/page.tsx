@@ -20,7 +20,7 @@ import {
 import { usePatients, useHospitalAtNight } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 
-type TabType = 'dashboard' | 'patients';
+type TabType = 'dashboard' | 'patients' | 'myTasks';
 type SortOption = 'priority' | 'oldest' | 'newest';
 const ROLES: HaNReviewRole[] = ['FY1', 'SHO', 'SpR', 'Discharge', 'Nurse'];
 const REVIEW_TYPES: HaNReviewType[] = ['Scheduled', 'Ad-hoc'];
@@ -285,6 +285,7 @@ function HighPriorityPatientModal({
               onReassign={onReassign}
               onAddComment={(comment) => onAddComment(entry.id, comment)}
             />
+            {/* Note: Assign to me not available from high priority modal */}
           </div>
         </div>
       </div>
@@ -308,6 +309,16 @@ export default function HospitalAtNightPage() {
   const [reviewTypeFilter, setReviewTypeFilter] = useState<HaNReviewType[]>([]);
   const [showWardDropdown, setShowWardDropdown] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('priority');
+
+  // My Tasks filters
+  const [myOohIds, setMyOohIds] = useState<string[]>([]);
+  const [myRoleFilter, setMyRoleFilter] = useState<HaNReviewRole[]>([]);
+  const [myDateFilter, setMyDateFilter] = useState<string>('');
+  const [myStatusFilter, setMyStatusFilter] = useState<HaNReviewStatus[]>([]);
+  const [myWardFilter, setMyWardFilter] = useState<string[]>([]);
+  const [myReviewTypeFilter, setMyReviewTypeFilter] = useState<HaNReviewType[]>([]);
+  const [showMyWardDropdown, setShowMyWardDropdown] = useState(false);
+  const [mySortOption, setMySortOption] = useState<SortOption>('priority');
 
   // Toggle states for showing handovers
   const [expandedHandovers, setExpandedHandovers] = useState<Set<string>>(new Set());
@@ -400,6 +411,20 @@ export default function HospitalAtNightPage() {
     refreshEntries();
   }, [entries, refreshEntries]);
 
+  // Load my OOH IDs from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('my_ooh_ids');
+    if (saved) { try { setMyOohIds(JSON.parse(saved)); } catch { /* ignore */ } }
+  }, []);
+
+  const handleToggleMyOoh = useCallback((entryId: string) => {
+    setMyOohIds(prev => {
+      const updated = prev.includes(entryId) ? prev.filter(id => id !== entryId) : [...prev, entryId];
+      localStorage.setItem('my_ooh_ids', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const handleSpecialtySelect = (specialty: HaNSpecialty) => {
     if (specialtyFilter === specialty) {
       setSpecialtyFilter(null);
@@ -483,6 +508,23 @@ export default function HospitalAtNightPage() {
     }
   });
 
+  // My Tasks filtered entries
+  const myFilteredEntries = entries
+    .filter(e => myOohIds.includes(e.id))
+    .filter(e => myRoleFilter.length === 0 || e.assignedRoles.some(r => myRoleFilter.includes(r)))
+    .filter(e => !myDateFilter || e.reviewDates.some(rd => rd.date === myDateFilter))
+    .filter(e => myStatusFilter.length === 0 || myStatusFilter.includes(e.reviewStatus))
+    .filter(e => myWardFilter.length === 0 || (e.patient?.ward && myWardFilter.includes(e.patient.ward)))
+    .filter(e => myReviewTypeFilter.length === 0 || myReviewTypeFilter.includes(e.reviewType || 'Scheduled'));
+  const mySortedEntries = [...myFilteredEntries].sort((a, b) => {
+    switch (mySortOption) {
+      case 'priority': return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      case 'oldest': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      default: return 0;
+    }
+  });
+
   // Dashboard stats - filtered by dashboard specialty selection
   const dashboardEntries = dashboardSpecialtyFilter.length > 0
     ? entries.filter(e => dashboardSpecialtyFilter.includes(e.specialty))
@@ -556,11 +598,28 @@ export default function HospitalAtNightPage() {
             >
               Patients
             </button>
+            <button
+              onClick={() => setActiveTab('myTasks')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'myTasks'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              My Tasks
+              {myOohIds.length > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                  {myOohIds.length}
+                </span>
+              )}
+            </button>
           </nav>
-          {activeTab === 'patients' && (
+          {(activeTab === 'patients' || activeTab === 'myTasks') && (
             <div className="bg-white rounded-lg border border-purple-200 shadow-sm px-5 py-2 text-center">
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Patients for Review</div>
-              <div className="text-2xl font-bold text-purple-600">{filteredEntries.length}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {activeTab === 'patients' ? filteredEntries.length : myFilteredEntries.length}
+              </div>
             </div>
           )}
         </div>
@@ -966,10 +1025,162 @@ export default function HospitalAtNightPage() {
                   onStatusChange={handleStatusChange}
                   onReassign={handleReassign}
                   onAddComment={(comment) => handleAddComment(entry.id, comment)}
+                  isAssignedToMe={myOohIds.includes(entry.id)}
+                  onToggleAssignedToMe={handleToggleMyOoh}
                 />
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* My Tasks Tab */}
+      {activeTab === 'myTasks' && (
+        <div className="space-y-4">
+          {myOohIds.length === 0 ? (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-8 text-center">
+              <svg className="w-12 h-12 text-purple-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <p className="text-purple-700 font-medium">No OOH reviews assigned to you yet</p>
+              <p className="text-purple-500 text-sm mt-1">Click &quot;Assign to me&quot; on any patient card to add it here</p>
+            </div>
+          ) : (
+            <>
+              {/* Filters */}
+              <div className="sticky top-0 z-10 py-4 -mt-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-wrap gap-6 items-start">
+                      {/* Role Filter */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Role</label>
+                        <div className="flex flex-wrap gap-1">
+                          {ROLES.map(role => (
+                            <button key={role}
+                              onClick={() => setMyRoleFilter(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])}
+                              className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${myRoleFilter.includes(role) ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >{role}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Date Filter */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Date of Review</label>
+                        <input type="date" value={myDateFilter} onChange={e => setMyDateFilter(e.target.value)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white" />
+                      </div>
+                      {/* Status Filter */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
+                        <div className="flex gap-1">
+                          {(['Pending', 'Complete'] as HaNReviewStatus[]).map(status => (
+                            <button key={status}
+                              onClick={() => setMyStatusFilter(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status])}
+                              className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${myStatusFilter.includes(status) ? status === 'Pending' ? 'bg-amber-500 text-white' : 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >{status}</button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Ward Filter */}
+                      <div className="relative">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Ward</label>
+                        <button onClick={() => setShowMyWardDropdown(!showMyWardDropdown)}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors flex items-center gap-2 ${myWardFilter.length > 0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                          {myWardFilter.length === 0 ? 'All Wards' : `${myWardFilter.length} selected`}
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showMyWardDropdown && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowMyWardDropdown(false)} />
+                            <div className="absolute top-full left-0 mt-1 z-20 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[280px] max-h-[320px] overflow-y-auto">
+                              <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-100">
+                                <span className="text-sm font-medium text-gray-700">Select Wards</span>
+                                <button onClick={() => setMyWardFilter([])} className="text-xs text-purple-600 hover:text-purple-700">Clear all</button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1">
+                                {availableWards.map(ward => (
+                                  <label key={ward} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${myWardFilter.includes(ward) ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}>
+                                    <input type="checkbox" checked={myWardFilter.includes(ward)}
+                                      onChange={() => setMyWardFilter(prev => prev.includes(ward) ? prev.filter(w => w !== ward) : [...prev, ward])}
+                                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                    <span className="text-sm">{ward}</span>
+                                  </label>
+                                ))}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-gray-100">
+                                <button onClick={() => setShowMyWardDropdown(false)}
+                                  className="w-full px-3 py-1.5 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700">Done</button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {/* Review Type Filter */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Review Type</label>
+                        <div className="flex gap-1">
+                          {REVIEW_TYPES.map(type => (
+                            <button key={type}
+                              onClick={() => setMyReviewTypeFilter(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])}
+                              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${myReviewTypeFilter.includes(type) ? type === 'Scheduled' ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-orange-100 text-orange-800 border border-orange-300' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                            >{type}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {(myRoleFilter.length > 0 || myDateFilter || myStatusFilter.length > 0 || myWardFilter.length > 0 || myReviewTypeFilter.length > 0) && (
+                      <button
+                        onClick={() => { setMyRoleFilter([]); setMyDateFilter(''); setMyStatusFilter([]); setMyWardFilter([]); setMyReviewTypeFilter([]); }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md font-medium transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* Sort Options */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Sort by:</span>
+                <div className="flex gap-1">
+                  {[{ value: 'priority', label: 'Priority' }, { value: 'oldest', label: 'Oldest First' }, { value: 'newest', label: 'Newest First' }].map(opt => (
+                    <button key={opt.value} onClick={() => setMySortOption(opt.value as SortOption)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mySortOption === opt.value ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    >{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+              {/* My Tasks List */}
+              <div className="space-y-3">
+                {mySortedEntries.length === 0 ? (
+                  <div className="bg-gray-50 rounded-lg p-8 text-center">
+                    <p className="text-gray-500">No patients match the current filters</p>
+                  </div>
+                ) : (
+                  mySortedEntries.map(entry => (
+                    <PatientCard
+                      key={entry.id}
+                      entry={entry}
+                      isExpanded={expandedHandovers.has(entry.id)}
+                      onToggleHandover={() => toggleHandover(entry.id)}
+                      onStatusChange={handleStatusChange}
+                      onReassign={handleReassign}
+                      onAddComment={(comment) => handleAddComment(entry.id, comment)}
+                      isAssignedToMe={true}
+                      onToggleAssignedToMe={handleToggleMyOoh}
+                    />
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -984,6 +1195,8 @@ interface PatientCardProps {
   onStatusChange: (entryId: string, status: HaNReviewStatus, completeTodayOnly?: boolean) => void;
   onReassign: (entryId: string, roles: HaNReviewRole[]) => void;
   onAddComment: (comment: { text: string; createdBy: string }) => void;
+  isAssignedToMe?: boolean;
+  onToggleAssignedToMe?: (entryId: string) => void;
 }
 
 function PatientCard({
@@ -992,7 +1205,9 @@ function PatientCard({
   onToggleHandover,
   onStatusChange,
   onReassign,
-  onAddComment
+  onAddComment,
+  isAssignedToMe,
+  onToggleAssignedToMe,
 }: PatientCardProps) {
   const [showReassign, setShowReassign] = useState(false);
   const [newRoles, setNewRoles] = useState<HaNReviewRole[]>(entry.assignedRoles);
@@ -1053,32 +1268,46 @@ function PatientCard({
       />
       <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
         {/* Review Date Banner */}
-        <div className="bg-purple-50 border-b border-purple-100 px-4 py-2 flex flex-wrap items-center gap-2">
-          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          {/* Review Type Indicator - appears before Review Date(s): */}
-          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-            entry.reviewType === 'Ad-hoc'
-              ? 'bg-orange-100 text-orange-800 border border-orange-200'
-              : 'bg-blue-100 text-blue-800 border border-blue-200'
-          }`}>
-            {entry.reviewType || 'Scheduled'}
-          </span>
-          <span className="text-sm font-medium text-purple-700">Review Date(s):</span>
-          {entry.reviewDates.map((rd, i) => (
-            <span
-              key={i}
-              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                rd.completedAt
-                  ? 'bg-green-100 text-green-700 border border-green-200'
-                  : 'bg-purple-100 text-purple-800 border border-purple-200'
+        <div className="bg-purple-50 border-b border-purple-100 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {/* Review Type Indicator - appears before Review Date(s): */}
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+              entry.reviewType === 'Ad-hoc'
+                ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                : 'bg-blue-100 text-blue-800 border border-blue-200'
+            }`}>
+              {entry.reviewType || 'Scheduled'}
+            </span>
+            <span className="text-sm font-medium text-purple-700">Review Date(s):</span>
+            {entry.reviewDates.map((rd, i) => (
+              <span
+                key={i}
+                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  rd.completedAt
+                    ? 'bg-green-100 text-green-700 border border-green-200'
+                    : 'bg-purple-100 text-purple-800 border border-purple-200'
+                }`}
+              >
+                {new Date(rd.date).toLocaleDateString()}
+                {rd.completedAt && ' ✓'}
+              </span>
+            ))}
+          </div>
+          {onToggleAssignedToMe && (
+            <button
+              onClick={() => onToggleAssignedToMe(entry.id)}
+              className={`px-2 py-1 rounded text-xs font-semibold transition-colors border ${
+                isAssignedToMe
+                  ? 'bg-purple-100 text-purple-400 border-purple-200'
+                  : 'bg-purple-600 text-white border-purple-700 hover:bg-purple-700'
               }`}
             >
-              {new Date(rd.date).toLocaleDateString()}
-              {rd.completedAt && ' ✓'}
-            </span>
-          ))}
+              {isAssignedToMe ? 'Assigned to me' : 'Assign to me'}
+            </button>
+          )}
         </div>
 
         <div className="p-4">

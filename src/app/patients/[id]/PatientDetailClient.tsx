@@ -21,7 +21,7 @@ import {
 } from '@/lib/types';
 import { usePatient, useHandoverNotes, useHospitalAtNightByPatient, useSpecialtyReferralsByPatient, useTasksByPatient } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePatientId } from '@/lib/useRouteParams';
 import { v4 as uuidv4 } from 'uuid';
 import { TaskCard } from '@/components/TaskCard';
@@ -91,6 +91,30 @@ export default function PatientDetailClient() {
     storage.updateSpecialtyReferral(referralId, { comments: updatedComments });
     refreshReferrals();
   }, [referralEntries, refreshReferrals]);
+
+  // Auto-expand active tasks when arriving via #active-tasks hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#active-tasks') {
+      setShowActiveTasks(true);
+      setTimeout(() => {
+        document.getElementById('active-tasks')?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+  }, []);
+
+  // My Tasks (assign to me) state – synced with localStorage
+  const [myTaskIds, setMyTaskIds] = useState<string[]>([]);
+  useEffect(() => {
+    const saved = localStorage.getItem('my_task_ids');
+    if (saved) { try { setMyTaskIds(JSON.parse(saved)); } catch { /* ignore */ } }
+  }, []);
+  const handleToggleAssignedToMe = useCallback((taskId: string) => {
+    setMyTaskIds(prev => {
+      const updated = prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId];
+      localStorage.setItem('my_task_ids', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const [discharging, setDischarging] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -319,6 +343,8 @@ export default function PatientDetailClient() {
                         onReassign={handleTaskReassign}
                         onAddComment={handleTaskAddComment}
                         onMarkCommentSeen={handleTaskMarkCommentSeen}
+                        isAssignedToMe={myTaskIds.includes(task.id)}
+                        onToggleAssignedToMe={handleToggleAssignedToMe}
                       />
                     ))
                 )}
@@ -368,6 +394,8 @@ export default function PatientDetailClient() {
                         onReassign={handleTaskReassign}
                         onAddComment={handleTaskAddComment}
                         onMarkCommentSeen={handleTaskMarkCommentSeen}
+                        isAssignedToMe={myTaskIds.includes(task.id)}
+                        onToggleAssignedToMe={handleToggleAssignedToMe}
                       />
                     ))
                 )}

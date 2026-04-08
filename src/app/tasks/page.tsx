@@ -16,7 +16,7 @@ import { useTasks, usePatients } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 import { TaskCard } from '@/components/TaskCard';
 
-type SubTab = 'byRole' | 'byWard';
+type SubTab = 'byRole' | 'byWard' | 'myTasks';
 type SortOption = 'priority' | 'oldest' | 'newest';
 const PRIORITY_ORDER: Record<ReferralPriority, number> = { High: 0, Medium: 1, Low: 2 };
 
@@ -249,6 +249,14 @@ export default function TasksPage() {
   const [wardRoleFilter, setWardRoleFilter] = useState<TaskRole[]>([]);
   const [wardSort, setWardSort] = useState<SortOption>('priority');
 
+  // My Tasks tab state
+  const [myTaskIds, setMyTaskIds] = useState<string[]>([]);
+  const [myPriorityFilter, setMyPriorityFilter] = useState<ReferralPriority[]>([]);
+  const [myStatusFilter, setMyStatusFilter] = useState<TaskStatus[]>([]);
+  const [myCommentsFilter, setMyCommentsFilter] = useState(false);
+  const [myRoleFilter, setMyRoleFilter] = useState<TaskRole[]>([]);
+  const [mySort, setMySort] = useState<SortOption>('priority');
+
   // Persist default role
   useEffect(() => {
     const saved = localStorage.getItem('tasks_default_role');
@@ -268,6 +276,20 @@ export default function TasksPage() {
     if (defaultWards.length > 0) localStorage.setItem('tasks_default_wards', JSON.stringify(defaultWards));
     else localStorage.removeItem('tasks_default_wards');
   }, [defaultWards]);
+
+  // Persist my task IDs
+  useEffect(() => {
+    const saved = localStorage.getItem('my_task_ids');
+    if (saved) { try { setMyTaskIds(JSON.parse(saved)); } catch { /* ignore */ } }
+  }, []);
+
+  const handleToggleAssignedToMe = useCallback((taskId: string) => {
+    setMyTaskIds(prev => {
+      const updated = prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId];
+      localStorage.setItem('my_task_ids', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const loading = tasksLoading || patientsLoading;
 
@@ -348,7 +370,20 @@ export default function TasksPage() {
     undefined, undefined, wardRoleFilter
   );
 
-  const taskCardProps = { onStatusChange: handleStatusChange, onReassign: handleReassign, onAddComment: handleAddComment, onMarkCommentSeen: handleMarkCommentSeen };
+  // My Tasks filtered list
+  const myTaskList = applyFiltersAndSort(
+    tasks.filter(t => myTaskIds.includes(t.id)),
+    myPriorityFilter, myStatusFilter, mySort, myCommentsFilter,
+    undefined, undefined, myRoleFilter
+  );
+
+  const taskCardProps = {
+    onStatusChange: handleStatusChange,
+    onReassign: handleReassign,
+    onAddComment: handleAddComment,
+    onMarkCommentSeen: handleMarkCommentSeen,
+    onToggleAssignedToMe: handleToggleAssignedToMe,
+  };
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-[50vh]"><div className="text-gray-500">Loading...</div></div>;
@@ -371,16 +406,23 @@ export default function TasksPage() {
       <div className="border-b border-gray-200">
         <div className="flex justify-between items-center">
           <nav className="flex space-x-8">
-            {[{ key: 'byRole', label: 'By Role' }, { key: 'byWard', label: 'By Ward' }].map(tab => (
+            {[{ key: 'byRole', label: 'By Role' }, { key: 'byWard', label: 'By Ward' }, { key: 'myTasks', label: 'My Tasks' }].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key as SubTab)}
                 className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >{tab.label}</button>
+              >
+                {tab.label}
+                {tab.key === 'myTasks' && myTaskIds.length > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                    {myTaskIds.length}
+                  </span>
+                )}
+              </button>
             ))}
           </nav>
           <div className="bg-white rounded-lg border border-indigo-200 shadow-sm px-5 py-2 text-center">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Showing</div>
             <div className="text-2xl font-bold text-indigo-600">
-              {activeTab === 'byRole' ? roleTaskList.length : wardTaskList.length}
+              {activeTab === 'byRole' ? roleTaskList.length : activeTab === 'byWard' ? wardTaskList.length : myTaskList.length}
             </div>
           </div>
         </div>
@@ -436,7 +478,39 @@ export default function TasksPage() {
                 <div className="text-center py-12 text-gray-500">No tasks found for {activeRole} with the current filters</div>
               ) : (
                 <div className="space-y-4">
-                  {roleTaskList.map(t => <TaskCard key={t.id} task={t} {...taskCardProps} />)}
+                  {roleTaskList.map(t => <TaskCard key={t.id} task={t} {...taskCardProps} isAssignedToMe={myTaskIds.includes(t.id)} />)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── My Tasks Tab ── */}
+      {activeTab === 'myTasks' && (
+        <div className="space-y-4">
+          {myTaskIds.length === 0 ? (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-8 text-center">
+              <svg className="w-12 h-12 text-indigo-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <p className="text-indigo-700 font-medium">No tasks assigned to you yet</p>
+              <p className="text-indigo-500 text-sm mt-1">Click &quot;Assign to me&quot; on any task card to add it here</p>
+            </div>
+          ) : (
+            <>
+              <TaskFiltersBar
+                priorityFilter={myPriorityFilter} setPriorityFilter={setMyPriorityFilter}
+                statusFilter={myStatusFilter} setStatusFilter={setMyStatusFilter}
+                commentsFilter={myCommentsFilter} setCommentsFilter={setMyCommentsFilter}
+                roleFilter={myRoleFilter} setRoleFilter={setMyRoleFilter}
+                sortOption={mySort} setSortOption={setMySort}
+              />
+              {myTaskList.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">No tasks match the current filters</div>
+              ) : (
+                <div className="space-y-4">
+                  {myTaskList.map(t => <TaskCard key={t.id} task={t} {...taskCardProps} isAssignedToMe={true} />)}
                 </div>
               )}
             </>
@@ -496,7 +570,7 @@ export default function TasksPage() {
                 <div className="text-center py-12 text-gray-500">No tasks found for the selected ward(s) with the current filters</div>
               ) : (
                 <div className="space-y-4">
-                  {wardTaskList.map(t => <TaskCard key={t.id} task={t} {...taskCardProps} />)}
+                  {wardTaskList.map(t => <TaskCard key={t.id} task={t} {...taskCardProps} isAssignedToMe={myTaskIds.includes(t.id)} />)}
                 </div>
               )}
             </>

@@ -135,12 +135,16 @@ export function TaskCard({
   onReassign,
   onAddComment,
   onMarkCommentSeen,
+  isAssignedToMe,
+  onToggleAssignedToMe,
 }: {
   task: PatientTaskWithPatient;
   onStatusChange: (id: string, status: TaskStatus) => void;
   onReassign: (id: string, roles: TaskRole[]) => void;
   onAddComment: (id: string, comment: { text: string; createdBy: string }) => void;
   onMarkCommentSeen: (taskId: string, commentId: string) => void;
+  isAssignedToMe?: boolean;
+  onToggleAssignedToMe?: (id: string) => void;
 }) {
   const [showReassign, setShowReassign] = useState(false);
   const [newRoles, setNewRoles] = useState<TaskRole[]>(task.assignedTo);
@@ -205,18 +209,30 @@ export function TaskCard({
               </div>
             )}
           </div>
-          {patient && (
-            <div className="flex items-center gap-2">
-              {patient.earlyWarningScore !== null && (
-                <span className={`px-2 py-0.5 rounded text-xs font-bold ${getNewsScoreColor(patient.earlyWarningScore)}`}>
-                  NEWS {patient.earlyWarningScore}
-                </span>
-              )}
+          <div className="flex items-center gap-2">
+            {patient && patient.earlyWarningScore !== null && (
+              <span className={`px-2 py-0.5 rounded text-xs font-bold ${getNewsScoreColor(patient.earlyWarningScore)}`}>
+                NEWS {patient.earlyWarningScore}
+              </span>
+            )}
+            {patient && (
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${getResusStatusColor(patient.resuscitationStatus)}`}>
                 {patient.resuscitationStatus}
               </span>
-            </div>
-          )}
+            )}
+            {onToggleAssignedToMe && (
+              <button
+                onClick={() => onToggleAssignedToMe(task.id)}
+                className={`px-2 py-1 rounded text-xs font-semibold transition-colors border ${
+                  isAssignedToMe
+                    ? 'bg-indigo-100 text-indigo-400 border-indigo-200'
+                    : 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700'
+                }`}
+              >
+                {isAssignedToMe ? 'Assigned to me' : 'Assign to me'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Three-column body */}
