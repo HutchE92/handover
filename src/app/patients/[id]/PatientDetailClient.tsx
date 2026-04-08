@@ -6,8 +6,10 @@ import {
   HospitalAtNightEntry,
   HaNPriority,
   SpecialtyReferral,
+  SpecialtyReferralWithPatient,
   ReferralStatus,
   ReferralPriority,
+  ReferralComment,
   PatientTaskWithPatient,
   TaskStatus,
   TaskRole,
@@ -23,6 +25,7 @@ import { useState, useCallback } from 'react';
 import { usePatientId } from '@/lib/useRouteParams';
 import { v4 as uuidv4 } from 'uuid';
 import { TaskCard } from '@/components/TaskCard';
+import { ReferralCard } from '@/components/ReferralCard';
 
 export default function PatientDetailClient() {
   const router = useRouter();
@@ -31,7 +34,6 @@ export default function PatientDetailClient() {
   const { patient, loading: patientLoading } = usePatient(patientId);
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes(patientId);
   const { entries: oohEntries, loading: oohLoading } = useHospitalAtNightByPatient(patientId);
-  const { referrals: referralEntries, loading: referralsLoading } = useSpecialtyReferralsByPatient(patientId);
   const { tasks: taskEntries, loading: tasksLoading, refresh: refreshTasks } = useTasksByPatient(patientId);
 
   const handleTaskStatusChange = useCallback((id: string, status: TaskStatus) => {
@@ -60,14 +62,43 @@ export default function PatientDetailClient() {
     refreshTasks();
   }, [refreshTasks]);
 
+  const { referrals: referralEntries, loading: referralsLoading, refresh: refreshReferrals } = useSpecialtyReferralsByPatient(patientId);
+
+  const handleReferralStatusChange = useCallback((id: string, status: ReferralStatus) => {
+    storage.updateSpecialtyReferral(id, { status, updatedAt: new Date().toISOString() });
+    refreshReferrals();
+  }, [refreshReferrals]);
+
+  const handleReferralAddComment = useCallback((id: string, comment: { text: string; createdBy: string }) => {
+    const referral = referralEntries.find(r => r.id === id);
+    if (!referral) return;
+    const newComment: ReferralComment = {
+      id: uuidv4(),
+      text: comment.text,
+      createdBy: comment.createdBy,
+      createdAt: new Date().toISOString(),
+    };
+    storage.updateSpecialtyReferral(id, { comments: [...(referral.comments || []), newComment] });
+    refreshReferrals();
+  }, [referralEntries, refreshReferrals]);
+
+  const handleReferralMarkCommentSeen = useCallback((referralId: string, commentId: string) => {
+    const referral = referralEntries.find(r => r.id === referralId);
+    if (!referral) return;
+    const updatedComments = (referral.comments || []).map(c =>
+      c.id === commentId ? { ...c, seenAt: new Date().toISOString() } : c
+    );
+    storage.updateSpecialtyReferral(referralId, { comments: updatedComments });
+    refreshReferrals();
+  }, [referralEntries, refreshReferrals]);
+
   const [discharging, setDischarging] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showActiveTasks, setShowActiveTasks] = useState(false);
   const [showTaskHistory, setShowTaskHistory] = useState(false);
+  const [showReferrals, setShowReferrals] = useState(false);
   const [showHandoverHistory, setShowHandoverHistory] = useState(false);
   const [showOohHistory, setShowOohHistory] = useState(false);
-  const [showReferralHistory, setShowReferralHistory] = useState(false);
-  const [referralCommentsEntry, setReferralCommentsEntry] = useState<SpecialtyReferral | null>(null);
 
   const loading = patientLoading || handoversLoading || oohLoading || referralsLoading || tasksLoading;
 
@@ -346,6 +377,61 @@ export default function PatientDetailClient() {
         );
       })()}
 
+      {/* Referrals */}
+      <div id="referrals" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => setShowReferrals(!showReferrals)}
+              className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700"
+            >
+              <svg
+                className={`w-5 h-5 transition-transform ${showReferrals ? 'rotate-90' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+              Referrals
+              <span className="text-sm font-normal text-gray-500">({referralEntries.length})</span>
+            </button>
+            <Link href="/referrals" className="text-teal-600 hover:text-teal-700 text-sm font-medium">
+              View All Referrals →
+            </Link>
+          </div>
+        </div>
+        {showReferrals && (
+          <div className="divide-y divide-gray-200 p-4 space-y-4">
+            {referralEntries.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No specialty referrals recorded yet</p>
+            ) : (
+              [...referralEntries]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map(entry => {
+                  const enriched: SpecialtyReferralWithPatient = {
+                    ...entry,
+                    patient: patient ?? undefined,
+                    latestHandover: handovers.length > 0
+                      ? [...handovers].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+                      : undefined,
+                  };
+                  return (
+                    <ReferralCard
+                      key={entry.id}
+                      referral={enriched}
+                      onStatusChange={handleReferralStatusChange}
+                      onAddComment={handleReferralAddComment}
+                      onMarkCommentSeen={handleReferralMarkCommentSeen}
+                    />
+                  );
+                })
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Handover History */}
       <div id="handover-history" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
         <div className="p-6 border-b border-gray-200">
@@ -504,152 +590,6 @@ export default function PatientDetailClient() {
         )}
       </div>
 
-      {/* Referral History */}
-      <div id="referral-history" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <button
-              onClick={() => setShowReferralHistory(!showReferralHistory)}
-              className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700"
-            >
-              <svg
-                className={`w-5 h-5 transition-transform ${showReferralHistory ? 'rotate-90' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-              </svg>
-              Referral History
-              <span className="text-sm font-normal text-gray-500">({referralEntries.length})</span>
-            </button>
-            <Link href="/referrals" className="text-teal-600 hover:text-teal-700 text-sm font-medium">
-              View All Referrals →
-            </Link>
-          </div>
-        </div>
-        {showReferralHistory && (
-          <div className="divide-y divide-gray-200">
-            {referralEntries.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No specialty referrals recorded yet</p>
-            ) : (
-              referralEntries
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .map(entry => (
-                  <ReferralHistoryCard
-                    key={entry.id}
-                    entry={entry}
-                    onViewComments={() => setReferralCommentsEntry(entry)}
-                  />
-                ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Referral comments modal */}
-      {referralCommentsEntry && (
-        <ReferralCommentsModal
-          entry={referralCommentsEntry}
-          onClose={() => setReferralCommentsEntry(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// Referral History Card Component
-function ReferralHistoryCard({ entry, onViewComments }: { entry: SpecialtyReferral; onViewComments: () => void }) {
-  const priorityColors: Record<ReferralPriority, string> = {
-    High: 'bg-red-500 text-white border-red-600',
-    Medium: 'bg-amber-500 text-white border-amber-600',
-    Low: 'bg-green-500 text-white border-green-600',
-  };
-  const statusColors: Record<ReferralStatus, string> = {
-    Pending: 'bg-amber-100 text-amber-800 border-amber-300',
-    Accepted: 'bg-green-100 text-green-800 border-green-300',
-    Declined: 'bg-red-100 text-red-800 border-red-300',
-    Cancelled: 'bg-gray-100 text-gray-700 border-gray-300',
-  };
-
-  return (
-    <div className="p-4">
-      <div className="flex flex-wrap items-center gap-2 mb-2">
-        <span className="text-xs text-gray-500">
-          {new Date(entry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800 border border-teal-200`}>
-          {entry.specialty}
-        </span>
-        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border-2 ${priorityColors[entry.priority]}`}>
-          {entry.priority}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${statusColors[entry.status]}`}>
-          {entry.status}
-        </span>
-        {entry.updatedAt && entry.updatedAt !== entry.createdAt && (
-          <span className="text-xs text-gray-400">
-            {new Date(entry.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
-        <button
-          onClick={onViewComments}
-          className="ml-auto flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          {entry.comments?.length || 0} comment{(entry.comments?.length || 0) !== 1 ? 's' : ''}
-        </button>
-      </div>
-      <p className="text-sm text-gray-700 bg-gray-50 rounded p-2">{entry.reasonForReferral}</p>
-      <div className="text-xs text-gray-400 mt-1">Referred by {entry.createdBy}</div>
-    </div>
-  );
-}
-
-// Referral Comments Modal
-function ReferralCommentsModal({ entry, onClose }: { entry: SpecialtyReferral; onClose: () => void }) {
-  const sorted = [...(entry.comments || [])].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">Comments</h3>
-              <p className="text-sm text-teal-700">{entry.specialty} referral</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-4 overflow-y-auto flex-1 space-y-3">
-            {sorted.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No comments yet</p>
-            ) : (
-              sorted.map(c => (
-                <div key={c.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="font-medium text-gray-900 text-sm">{c.createdBy}</span>
-                    <span className="text-xs text-gray-500">{new Date(c.createdAt).toLocaleString()}</span>
-                  </div>
-                  <p className="text-sm text-gray-700">{c.text}</p>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="p-4 border-t border-gray-200">
-            <button onClick={onClose} className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Close</button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
