@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script>
+    // GitHub Pages SPA redirect
+    // This script takes the current url and converts the path and query
+    // string into just a query string, and then redirects the browser
+    // to the new url with only a query string and hash fragment.
+    // This prevents a 404 and allows the SPA to handle the routing.
+    var pathSegmentsToKeep = 1; // Keep /handover/ (the basePath)
+
+    var l = window.location;
+    var repo = '/handover';
+
+    // Get the path after the repo name
+    var path = l.pathname;
+    if (path.startsWith(repo)) {
+      path = path.slice(repo.length);
+    }
+
+    // Store the path in sessionStorage for the SPA to pick up
+    sessionStorage.setItem('redirectPath', path + l.search + l.hash);
+
+    // Redirect to the main page
+    l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + repo + '/');
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>
