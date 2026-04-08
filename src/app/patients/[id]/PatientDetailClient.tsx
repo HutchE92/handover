@@ -8,12 +8,13 @@ import {
   SpecialtyReferral,
   ReferralStatus,
   ReferralPriority,
+  PatientTask,
   formatNhsNumber,
   calculateAge,
   getNewsScoreColor,
   getResusStatusColor
 } from '@/lib/types';
-import { usePatient, useHandoverNotes, useHospitalAtNightByPatient, useSpecialtyReferralsByPatient } from '@/lib/useData';
+import { usePatient, useHandoverNotes, useHospitalAtNightByPatient, useSpecialtyReferralsByPatient, useTasksByPatient } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 import { useState } from 'react';
 import { usePatientId } from '@/lib/useRouteParams';
@@ -26,15 +27,18 @@ export default function PatientDetailClient() {
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes(patientId);
   const { entries: oohEntries, loading: oohLoading } = useHospitalAtNightByPatient(patientId);
   const { referrals: referralEntries, loading: referralsLoading } = useSpecialtyReferralsByPatient(patientId);
+  const { tasks: taskEntries, loading: tasksLoading } = useTasksByPatient(patientId);
 
   const [discharging, setDischarging] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showActiveTasks, setShowActiveTasks] = useState(false);
+  const [showTaskHistory, setShowTaskHistory] = useState(false);
   const [showHandoverHistory, setShowHandoverHistory] = useState(false);
   const [showOohHistory, setShowOohHistory] = useState(false);
   const [showReferralHistory, setShowReferralHistory] = useState(false);
   const [referralCommentsEntry, setReferralCommentsEntry] = useState<SpecialtyReferral | null>(null);
 
-  const loading = patientLoading || handoversLoading || oohLoading || referralsLoading;
+  const loading = patientLoading || handoversLoading || oohLoading || referralsLoading || tasksLoading;
 
   const handleDischarge = () => {
     if (!patient || !confirm('Are you sure you want to discharge this patient?')) {
@@ -206,6 +210,92 @@ export default function PatientDetailClient() {
           </dl>
         </div>
       </div>
+
+      {/* Active Tasks */}
+      {(() => {
+        const activeTasks = taskEntries.filter(t => t.status === 'New' || t.status === 'In Progress');
+        return (
+          <div id="active-tasks" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={() => setShowActiveTasks(!showActiveTasks)}
+                  className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700"
+                >
+                  <svg
+                    className={`w-5 h-5 transition-transform ${showActiveTasks ? 'rotate-90' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  Active Tasks
+                  <span className="text-sm font-normal text-gray-500">({activeTasks.length})</span>
+                </button>
+                <a href="/tasks" className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                  View All Tasks →
+                </a>
+              </div>
+            </div>
+            {showActiveTasks && (
+              <div className="divide-y divide-gray-200">
+                {activeTasks.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No active tasks</p>
+                ) : (
+                  activeTasks
+                    .sort((a, b) => {
+                      const p: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+                      return (p[a.priority] ?? 1) - (p[b.priority] ?? 1);
+                    })
+                    .map(task => <PatientTaskCard key={task.id} task={task} />)
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Task History */}
+      {(() => {
+        const completedTasks = taskEntries.filter(t => t.status === 'Complete');
+        return (
+          <div id="task-history" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={() => setShowTaskHistory(!showTaskHistory)}
+                  className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-gray-700"
+                >
+                  <svg
+                    className={`w-5 h-5 transition-transform ${showTaskHistory ? 'rotate-90' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Task History
+                  <span className="text-sm font-normal text-gray-500">({completedTasks.length})</span>
+                </button>
+              </div>
+            </div>
+            {showTaskHistory && (
+              <div className="divide-y divide-gray-200">
+                {completedTasks.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No completed tasks</p>
+                ) : (
+                  completedTasks
+                    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                    .map(task => <PatientTaskCard key={task.id} task={task} />)
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Handover History */}
       <div id="handover-history" className="bg-white rounded-lg shadow border border-gray-200 scroll-mt-4">
@@ -416,6 +506,51 @@ export default function PatientDetailClient() {
           onClose={() => setReferralCommentsEntry(null)}
         />
       )}
+    </div>
+  );
+}
+
+// Patient Task Card Component (read-only view for patient detail page)
+function PatientTaskCard({ task }: { task: PatientTask }) {
+  const priorityColors: Record<string, string> = {
+    High: 'bg-red-500 text-white border-red-600',
+    Medium: 'bg-amber-500 text-white border-amber-600',
+    Low: 'bg-green-500 text-white border-green-600',
+  };
+  const statusColors: Record<string, string> = {
+    New: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    'In Progress': 'bg-amber-100 text-amber-800 border-amber-300',
+    Complete: 'bg-green-100 text-green-800 border-green-300',
+  };
+
+  return (
+    <div className="p-4">
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border-2 ${priorityColors[task.priority]}`}>
+          {task.priority}
+        </span>
+        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${statusColors[task.status]}`}>
+          {task.status}
+        </span>
+        <span className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-2 py-0.5">
+          {task.assignedTo.join(', ')}
+        </span>
+        {(task.dueDate || task.dueTime) && (
+          <span className="text-xs text-gray-500">
+            Due: {task.dueDate && new Date(task.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}{task.dueTime && ` at ${task.dueTime}`}
+          </span>
+        )}
+        {task.comments && task.comments.length > 0 && (
+          <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {task.comments.length} comment{task.comments.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-gray-700 bg-gray-50 rounded p-2">{task.taskDetails}</p>
+      <div className="text-xs text-gray-400 mt-1">Created by {task.createdBy} on {new Date(task.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
     </div>
   );
 }

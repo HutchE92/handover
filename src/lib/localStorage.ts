@@ -1,11 +1,12 @@
 // localStorage-based data layer for static deployment
-import { Patient, HandoverNote, HospitalAtNightEntry, HaNComment, SpecialtyReferral, ReferralComment } from './types';
+import { Patient, HandoverNote, HospitalAtNightEntry, HaNComment, SpecialtyReferral, ReferralComment, PatientTask, TaskComment } from './types';
 
 const STORAGE_KEYS = {
   patients: 'handover_patients',
   handoverNotes: 'handover_notes',
   hospitalAtNight: 'hospital_at_night',
   specialtyReferrals: 'specialty_referrals',
+  tasks: 'patient_tasks',
   initialized: 'handover_initialized'
 };
 
@@ -3899,6 +3900,40 @@ const sampleSpecialtyReferrals: SpecialtyReferral[] = [
   { id: 'ref96', patientId: 'p81', specialty: 'Vascular Surgery', priority: 'Medium', reasonForReferral: 'Critical limb ischaemia with non-healing ulcer on left great toe. ABPI 0.42. CT angiogram shows femoro-popliteal occlusion. Requesting vascular review for revascularisation options.', status: 'Pending', createdBy: 'Dr. Mitchell', createdAt: d7, updatedAt: d7, comments: [] }
 ];
 
+const _today = new Date().toISOString().split('T')[0];
+const _tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const _yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+const _2dAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+const _3dAgo = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
+
+const sampleTasks: PatientTask[] = [
+  { id: 'task1', patientId: 'p1', createdBy: 'Dr. Williams', assignedTo: ['Nurse'], priority: 'High', taskDetails: 'Hourly observations required. Record BP, HR, RR, SpO2, Temp and NEWS every hour. Alert registrar if NEWS ≥5 or any single parameter scores 3.', status: 'New', dueDate: _today, dueTime: '09:00', createdAt: `${_3dAgo}T08:00:00.000Z`, updatedAt: `${_3dAgo}T08:00:00.000Z`, comments: [] },
+  { id: 'task2', patientId: 'p2', createdBy: 'Dr. Patel', assignedTo: ['Ward Doctor'], priority: 'High', taskDetails: 'Review morning blood results. Hb was 7.2 on admission. Discuss with haematology if below 7.0. Consider transfusion if symptomatic.', status: 'New', dueDate: _today, dueTime: '10:00', createdAt: `${_2dAgo}T09:00:00.000Z`, updatedAt: `${_2dAgo}T09:00:00.000Z`, comments: [] },
+  { id: 'task3', patientId: 'p3', createdBy: 'Nurse Jenkins', assignedTo: ['Physio'], priority: 'Medium', taskDetails: 'Mobility assessment following hip replacement. Patient walked short distances yesterday. Aim for 10m corridor walk with frame. Review stair assessment if ward physio agrees.', status: 'In Progress', dueDate: _today, dueTime: '11:00', createdAt: `${_2dAgo}T10:00:00.000Z`, updatedAt: `${_yesterday}T14:00:00.000Z`, comments: [{ id: 'tc3a', text: 'Started assessment this morning. Patient keen but fatiguing quickly.', createdBy: 'Physio Thompson', createdAt: `${_yesterday}T14:00:00.000Z` }] },
+  { id: 'task4', patientId: 'p4', createdBy: 'Dr. Chen', assignedTo: ['Occupational Therapist'], priority: 'Medium', taskDetails: 'Home assessment required. Patient lives alone in a 2-storey house. Needs stair assessment, kitchen assessment and review of grab rails. Aim for discharge planning meeting this week.', status: 'New', dueDate: _tomorrow, createdAt: `${_2dAgo}T11:00:00.000Z`, updatedAt: `${_2dAgo}T11:00:00.000Z`, comments: [] },
+  { id: 'task5', patientId: 'p5', createdBy: 'Dr. Williams', assignedTo: ['Dietician'], priority: 'High', taskDetails: 'Nutritional assessment urgent. Patient has lost 8kg over past 6 weeks. BMI now 16.2. Review MUST score and initiate supplemental nutrition. Consider NG feeding if oral intake insufficient.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T08:30:00.000Z`, updatedAt: `${_yesterday}T08:30:00.000Z`, comments: [] },
+  { id: 'task6', patientId: 'p6', createdBy: 'Nurse Davis', assignedTo: ['HCA'], priority: 'Low', taskDetails: 'Assist with morning wash and dressing. Patient can partially self-care but needs help with lower limbs. Ensure bed and surrounding area are clean and tidy.', status: 'Complete', dueDate: _yesterday, dueTime: '08:00', createdAt: `${_3dAgo}T07:00:00.000Z`, updatedAt: `${_yesterday}T09:00:00.000Z`, comments: [] },
+  { id: 'task7', patientId: 'p7', createdBy: 'Dr. Patel', assignedTo: ['Nurse', 'Ward Doctor'], priority: 'High', taskDetails: 'Strict fluid balance monitoring. Patient in acute heart failure. Record all input and output hourly. Alert if urine output <30ml/hr for 2 consecutive hours. Daily weight at 07:00.', status: 'In Progress', dueDate: _today, dueTime: '07:00', createdAt: `${_2dAgo}T06:00:00.000Z`, updatedAt: `${_yesterday}T18:00:00.000Z`, comments: [{ id: 'tc7a', text: 'Urine output has improved overnight. Currently averaging 45ml/hr.', createdBy: 'Night Nurse', createdAt: `${_yesterday}T06:00:00.000Z`, seenAt: `${_yesterday}T08:00:00.000Z` }] },
+  { id: 'task8', patientId: 'p8', createdBy: 'Dr. Ahmed', assignedTo: ['Physio'], priority: 'Medium', taskDetails: 'Respiratory physiotherapy for patient with post-operative atelectasis. Left lower lobe changes on CXR. Aim for 3 sessions today. Teach active cycle of breathing technique.', status: 'In Progress', dueDate: _today, createdAt: `${_yesterday}T09:00:00.000Z`, updatedAt: `${_yesterday}T15:00:00.000Z`, comments: [] },
+  { id: 'task9', patientId: 'p9', createdBy: 'Dr. Williams', assignedTo: ['Ward Doctor'], priority: 'Medium', taskDetails: 'Discharge planning review. Patient medically fit but awaiting care package. Contact social services for update on package status. Estimated discharge tomorrow if package confirmed.', status: 'New', dueDate: _today, dueTime: '14:00', createdAt: `${_yesterday}T10:00:00.000Z`, updatedAt: `${_yesterday}T10:00:00.000Z`, comments: [] },
+  { id: 'task10', patientId: 'p10', createdBy: 'Nurse Smith', assignedTo: ['Nurse'], priority: 'High', taskDetails: 'Blood glucose monitoring QDS. Patient with poorly controlled T2DM post-surgery. Target BM 6-10 mmol/L. Sliding scale insulin in place — follow protocol. Notify doctor if BM >15 or <4.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T11:00:00.000Z`, updatedAt: `${_yesterday}T11:00:00.000Z`, comments: [] },
+  { id: 'task11', patientId: 'p11', createdBy: 'Dr. Chen', assignedTo: ['Dietician'], priority: 'Medium', taskDetails: 'Review enteral feeding regime for patient on NG feeds. Current rate 50ml/hr. Reassess tolerance and adjust rate as clinically indicated. Document in nutrition plan.', status: 'Complete', dueDate: _yesterday, createdAt: `${_3dAgo}T09:00:00.000Z`, updatedAt: `${_yesterday}T16:00:00.000Z`, comments: [{ id: 'tc11a', text: 'Rate increased to 60ml/hr. Tolerating well. Will review again in 24 hours.', createdBy: 'Dietician Brown', createdAt: `${_yesterday}T16:00:00.000Z` }] },
+  { id: 'task12', patientId: 'p12', createdBy: 'Dr. Patel', assignedTo: ['Occupational Therapist'], priority: 'Low', taskDetails: 'Cognitive assessment for elderly patient with background dementia. Patient appears more confused than baseline. Mini-ACE or MOCA assessment. Discuss results with medical team.', status: 'New', dueDate: _tomorrow, createdAt: `${_yesterday}T12:00:00.000Z`, updatedAt: `${_yesterday}T12:00:00.000Z`, comments: [] },
+  { id: 'task13', patientId: 'p13', createdBy: 'Nurse Johnson', assignedTo: ['HCA'], priority: 'Medium', taskDetails: 'Pressure area care — reposition every 2 hours. Patient at high risk per Waterlow score (21). Document all repositioning in care plan. Alert nurse if any skin breakdown noted.', status: 'In Progress', dueDate: _today, createdAt: `${_2dAgo}T08:00:00.000Z`, updatedAt: `${_yesterday}T20:00:00.000Z`, comments: [] },
+  { id: 'task14', patientId: 'p14', createdBy: 'Dr. Ahmed', assignedTo: ['Ward Doctor', 'Nurse'], priority: 'High', taskDetails: 'Post-op review at 6 hours. Check surgical site, drain output, and pain management. Ensure DVT prophylaxis prescribed. Patient to have routine blood tests at 18:00.', status: 'Complete', dueDate: _yesterday, dueTime: '18:00', createdAt: `${_2dAgo}T12:00:00.000Z`, updatedAt: `${_yesterday}T19:00:00.000Z`, comments: [] },
+  { id: 'task15', patientId: 'p15', createdBy: 'Dr. Williams', assignedTo: ['Nurse'], priority: 'Medium', taskDetails: 'Catheter care and fluid balance. Ensure catheter patent and draining freely. Record urine output hourly. Target >0.5ml/kg/hr. Consider trial of void tomorrow if urine output stable.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T13:00:00.000Z`, updatedAt: `${_yesterday}T13:00:00.000Z`, comments: [] },
+  { id: 'task16', patientId: 'p1', createdBy: 'Nurse Jenkins', assignedTo: ['Physio'], priority: 'Low', taskDetails: 'Assess for Zimmer frame or walking aid. Patient recovering from acute illness, previously independent. Trial mobilisation on ward. Aim for discharge within 48 hours if safe to mobilise.', status: 'New', dueDate: _tomorrow, createdAt: `${_yesterday}T14:00:00.000Z`, updatedAt: `${_yesterday}T14:00:00.000Z`, comments: [] },
+  { id: 'task17', patientId: 'p16', createdBy: 'Dr. Patel', assignedTo: ['Ward Doctor'], priority: 'High', taskDetails: 'Urgent drug chart review. Patient brought in on multiple medications. Reconcile with GP drug list. Check for interactions with new prescriptions. Rewrite drug chart clearly.', status: 'New', dueDate: _today, dueTime: '12:00', createdAt: `${_yesterday}T07:00:00.000Z`, updatedAt: `${_yesterday}T07:00:00.000Z`, comments: [] },
+  { id: 'task18', patientId: 'p17', createdBy: 'Dr. Chen', assignedTo: ['Dietician'], priority: 'Low', taskDetails: 'Nutrition support for patient with IBD flare. Low residue diet assessment. Review current supplements. Consider involvement of specialist dietician if not improving.', status: 'New', dueDate: _tomorrow, createdAt: `${_yesterday}T15:00:00.000Z`, updatedAt: `${_yesterday}T15:00:00.000Z`, comments: [] },
+  { id: 'task19', patientId: 'p18', createdBy: 'Dr. Ahmed', assignedTo: ['Occupational Therapist'], priority: 'Medium', taskDetails: 'Upper limb function assessment following CVA. Patient has right-sided weakness. Assess ADL ability and functional grip strength. Recommend appropriate aids. Liaise with physio regarding MDT plan.', status: 'In Progress', dueDate: _today, createdAt: `${_2dAgo}T09:00:00.000Z`, updatedAt: `${_today}T09:00:00.000Z`, comments: [{ id: 'tc19a', text: 'Initial assessment done. Right hand grip significantly reduced. Starting adapted ADL programme.', createdBy: 'OT Davies', createdAt: `${_today}T09:00:00.000Z` }] },
+  { id: 'task20', patientId: 'p19', createdBy: 'Nurse Carter', assignedTo: ['HCA'], priority: 'Low', taskDetails: 'Assist with meal times. Patient has dysphagia (thickened fluids). Ensure correct consistency is provided. Encourage small frequent mouthfuls. Alert nurse if patient coughs during eating.', status: 'New', dueDate: _today, dueTime: '12:00', createdAt: `${_yesterday}T11:00:00.000Z`, updatedAt: `${_yesterday}T11:00:00.000Z`, comments: [] },
+  { id: 'task21', patientId: 'p20', createdBy: 'Dr. Williams', assignedTo: ['Nurse', 'Ward Doctor'], priority: 'High', taskDetails: 'IV antibiotics monitoring. Patient on IV Tazocin 4.5g TDS for severe cellulitis. Ensure cannula patent before each dose. Monitor for allergy reaction. Review switch to oral when CRP trending down.', status: 'In Progress', dueDate: _today, createdAt: `${_3dAgo}T10:00:00.000Z`, updatedAt: `${_yesterday}T10:00:00.000Z`, comments: [] },
+  { id: 'task22', patientId: 'p21', createdBy: 'Dr. Patel', assignedTo: ['Physio'], priority: 'Medium', taskDetails: 'Post-fall physiotherapy assessment. Patient fell in corridor overnight. No fractures on X-ray. Formal falls risk assessment, gait analysis, and review of footwear. Consider bed alarm.', status: 'New', dueDate: _today, createdAt: `${_today}T07:00:00.000Z`, updatedAt: `${_today}T07:00:00.000Z`, comments: [] },
+  { id: 'task23', patientId: 'p22', createdBy: 'Dr. Chen', assignedTo: ['Ward Doctor'], priority: 'Medium', taskDetails: 'Imaging review with radiologist. CT Chest showing possible pulmonary embolism. Formal radiology report still pending. Chase report and discuss findings with consultant.', status: 'New', dueDate: _today, dueTime: '11:00', createdAt: `${_yesterday}T16:00:00.000Z`, updatedAt: `${_yesterday}T16:00:00.000Z`, comments: [] },
+  { id: 'task24', patientId: 'p23', createdBy: 'Nurse Morris', assignedTo: ['Dietician', 'Nurse'], priority: 'Medium', taskDetails: 'Assess oral intake and initiate nutritional support plan. Patient has been nil by mouth for 48 hours post-surgery. Surgical team have now cleared for fluids and light diet. Progress gradually.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T10:00:00.000Z`, updatedAt: `${_yesterday}T10:00:00.000Z`, comments: [] },
+  { id: 'task25', patientId: 'p24', createdBy: 'Dr. Ahmed', assignedTo: ['HCA', 'Nurse'], priority: 'Low', taskDetails: 'Bowel care assessment. Patient has not opened bowels for 5 days. Ensure prescribed laxatives are being administered. Report to nurse if no bowel movement by today.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T09:00:00.000Z`, updatedAt: `${_yesterday}T09:00:00.000Z`, comments: [] },
+];
+
 // Initialize with sample data if empty
 export function initializeData(): void {
   if (!isBrowser) return;
@@ -3909,6 +3944,7 @@ export function initializeData(): void {
     setStorage(STORAGE_KEYS.handoverNotes, sampleHandoverNotes);
     setStorage(STORAGE_KEYS.hospitalAtNight, sampleHospitalAtNight);
     setStorage(STORAGE_KEYS.specialtyReferrals, sampleSpecialtyReferrals);
+    setStorage(STORAGE_KEYS.tasks, sampleTasks);
     localStorage.setItem(STORAGE_KEYS.initialized, 'true');
   }
 }
@@ -4134,6 +4170,58 @@ export function markCommentSeen(referralId: string, commentId: string): Specialt
   };
   setStorage(STORAGE_KEYS.specialtyReferrals, referrals);
   return referrals[index];
+}
+
+// ─── Task CRUD ────────────────────────────────────────────────────────────────
+export function getAllTasks(): PatientTask[] {
+  return getStorage<PatientTask[]>(STORAGE_KEYS.tasks, []);
+}
+
+export function getTasksByPatient(patientId: string): PatientTask[] {
+  return getAllTasks().filter(t => t.patientId === patientId);
+}
+
+export function createTask(task: PatientTask): PatientTask {
+  const tasks = getAllTasks();
+  tasks.push(task);
+  setStorage(STORAGE_KEYS.tasks, tasks);
+  return task;
+}
+
+export function updateTask(id: string, updates: Partial<PatientTask>): PatientTask | undefined {
+  const tasks = getAllTasks();
+  const index = tasks.findIndex(t => t.id === id);
+  if (index === -1) return undefined;
+  tasks[index] = { ...tasks[index], ...updates, updatedAt: new Date().toISOString() };
+  setStorage(STORAGE_KEYS.tasks, tasks);
+  return tasks[index];
+}
+
+export function addCommentToTask(id: string, comment: TaskComment): PatientTask | undefined {
+  const tasks = getAllTasks();
+  const index = tasks.findIndex(t => t.id === id);
+  if (index === -1) return undefined;
+  tasks[index] = {
+    ...tasks[index],
+    comments: [...(tasks[index].comments || []), comment],
+    updatedAt: new Date().toISOString(),
+  };
+  setStorage(STORAGE_KEYS.tasks, tasks);
+  return tasks[index];
+}
+
+export function markTaskCommentSeen(taskId: string, commentId: string): PatientTask | undefined {
+  const tasks = getAllTasks();
+  const index = tasks.findIndex(t => t.id === taskId);
+  if (index === -1) return undefined;
+  tasks[index] = {
+    ...tasks[index],
+    comments: tasks[index].comments.map(c =>
+      c.id === commentId ? { ...c, seenAt: new Date().toISOString() } : c
+    ),
+  };
+  setStorage(STORAGE_KEYS.tasks, tasks);
+  return tasks[index];
 }
 
 // Reset data (useful for demo)

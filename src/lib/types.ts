@@ -118,6 +118,38 @@ export interface SpecialtyReferralWithPatient extends SpecialtyReferral {
   latestHandover?: HandoverNote;
 }
 
+// Task types
+export const TASK_ROLES = ['Nurse', 'Ward Doctor', 'Physio', 'Occupational Therapist', 'Dietician', 'HCA'] as const;
+export type TaskRole = typeof TASK_ROLES[number];
+export type TaskStatus = 'New' | 'In Progress' | 'Complete';
+
+export interface TaskComment {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+  seenAt?: string;
+}
+
+export interface PatientTask {
+  id: string;
+  patientId: string;
+  createdBy: string;
+  assignedTo: TaskRole[];
+  dueDate?: string;
+  dueTime?: string;
+  priority: ReferralPriority;
+  taskDetails: string;
+  status: TaskStatus;
+  createdAt: string;
+  updatedAt: string;
+  comments: TaskComment[];
+}
+
+export interface PatientTaskWithPatient extends PatientTask {
+  patient?: Patient;
+}
+
 export function getNewsScoreColor(score: number | null): string {
   if (score === null) return 'bg-gray-100 text-gray-600';
   if (score <= 4) return 'bg-green-100 text-green-800';

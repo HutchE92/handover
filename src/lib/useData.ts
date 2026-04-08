@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Patient, HandoverNote, HospitalAtNightEntry, SpecialtyReferral } from './types';
+import { Patient, HandoverNote, HospitalAtNightEntry, SpecialtyReferral, PatientTask } from './types';
 import * as storage from './localStorage';
 
 // Initialize data on first load
@@ -270,6 +270,38 @@ export function useSpecialtyReferralsByPatient(patientId: string) {
   }, [refresh]);
 
   return { referrals, loading, refresh };
+}
+
+// Hook for all tasks
+export function useTasks() {
+  const [tasks, setTasks] = useState<PatientTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(() => {
+    ensureInitialized();
+    setTasks(storage.getAllTasks());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  return { tasks, loading, refresh };
+}
+
+// Hook for tasks by patient
+export function useTasksByPatient(patientId: string) {
+  const [tasks, setTasks] = useState<PatientTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(() => {
+    ensureInitialized();
+    setTasks(storage.getTasksByPatient(patientId));
+    setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  return { tasks, loading, refresh };
 }
 
 // Reset to sample data

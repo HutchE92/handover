@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType, HaNSpecialty, ReferralSpecialty, ReferralPriority, SpecialtyReferral } from '@/lib/types';
+import { HandoverNote, Patient, getNewsScoreColor, getResusStatusColor, formatNhsNumber, calculateAge, HaNPriority, HaNReviewRole, HaNReviewDate, HospitalAtNightEntry, HaNComment, HaNReviewType, HaNSpecialty, ReferralSpecialty, ReferralPriority, SpecialtyReferral, TASK_ROLES, TaskRole, PatientTask } from '@/lib/types';
 import HospitalAtNightModal from '@/components/HospitalAtNightModal';
 import SpecialtyReferralModal from '@/components/SpecialtyReferralModal';
 import { v4 as uuidv4 } from 'uuid';
-import { usePatients, useHandoverNotes, useHospitalAtNight } from '@/lib/useData';
+import { usePatients, useHandoverNotes, useHospitalAtNight, useTasks } from '@/lib/useData';
 import * as storage from '@/lib/localStorage';
 
 interface HandoverWithPatient extends HandoverNote {
@@ -222,16 +222,132 @@ function OohReviewModal({
   );
 }
 
+// ─── Create Task Modal ────────────────────────────────────────────────────────
+function CreateTaskModal({ patient, isOpen, onClose, onSubmit }: {
+  patient: PatientWithLatestHandover;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (task: Omit<PatientTask, 'id' | 'patientId' | 'createdAt' | 'updatedAt' | 'comments'>) => void;
+}) {
+  const [createdBy, setCreatedBy] = useState('');
+  const [assignedTo, setAssignedTo] = useState<TaskRole[]>([]);
+  const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  const [priority, setPriority] = useState<ReferralPriority>('Medium');
+  const [taskDetails, setTaskDetails] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createdBy.trim()) { setError('Please enter your name'); return; }
+    if (assignedTo.length === 0) { setError('Please assign the task to at least one role'); return; }
+    if (!taskDetails.trim()) { setError('Please enter task details'); return; }
+    setError(null);
+    onSubmit({ createdBy: createdBy.trim(), assignedTo, dueDate: dueDate || undefined, dueTime: dueTime || undefined, priority, taskDetails: taskDetails.trim(), status: 'New' });
+    setCreatedBy(''); setAssignedTo([]); setDueDate(''); setDueTime(''); setPriority('Medium'); setTaskDetails('');
+    onClose();
+  };
+
+  const toggleRole = (r: TaskRole) => setAssignedTo(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+        <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
+          <div className="bg-indigo-600 px-6 py-4">
+            <h3 className="text-lg font-bold text-white">Create Task</h3>
+            <p className="text-indigo-200 text-sm mt-0.5">{patient.lastName}, {patient.firstName} · {patient.ward} · Bed {patient.bedNumber}</p>
+          </div>
+          {error && <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">{error}</div>}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+              <input type="text" value={createdBy} onChange={e => setCreatedBy(e.target.value)} placeholder="e.g., Dr. Williams"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Assign Task To *</label>
+              <div className="relative">
+                <button type="button" onClick={() => setAssignDropdownOpen(!assignDropdownOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50 text-left">
+                  <span className="text-gray-700">
+                    {assignedTo.length === 0 ? 'Select roles...' : assignedTo.length === 1 ? assignedTo[0] : `${assignedTo.length} roles selected`}
+                  </span>
+                  <svg className={`w-4 h-4 text-gray-500 transition-transform ${assignDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {assignDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                    {TASK_ROLES.map(r => (
+                      <label key={r} className="flex items-center gap-2 px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" checked={assignedTo.includes(r)} onChange={() => toggleRole(r)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                        {r}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date Due <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Time Due <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority *</label>
+              <div className="flex gap-2">
+                {(['High', 'Medium', 'Low'] as ReferralPriority[]).map(p => (
+                  <button key={p} type="button" onClick={() => setPriority(p)}
+                    className={`flex-1 py-1.5 rounded text-sm font-medium border-2 transition-colors ${
+                      priority === p
+                        ? p === 'High' ? 'bg-red-500 text-white border-red-500' : p === 'Medium' ? 'bg-amber-500 text-white border-amber-500' : 'bg-green-500 text-white border-green-500'
+                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task Details *</label>
+              <textarea value={taskDetails} onChange={e => setTaskDetails(e.target.value)} rows={4} placeholder="Describe the task in detail..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none" />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button type="submit" className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700">Create Task</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HandoverListPage() {
   const { patients, loading: patientsLoading } = usePatients(true);
   const { notes: handovers, loading: handoversLoading } = useHandoverNotes();
   const { entries: oohEntries, loading: oohLoading, refresh: refreshOoh } = useHospitalAtNight();
+  const { tasks: allTasks, refresh: refreshTasks } = useTasks();
 
   const [selectedWard, setSelectedWard] = useState<string>('');
   const [defaultWard, setDefaultWard] = useState<string>('');
   const [filterHighNews, setFilterHighNews] = useState(false);
   const [hanModalPatient, setHanModalPatient] = useState<PatientWithLatestHandover | null>(null);
   const [referralModalPatient, setReferralModalPatient] = useState<PatientWithLatestHandover | null>(null);
+  const [taskModalPatient, setTaskModalPatient] = useState<PatientWithLatestHandover | null>(null);
   const [selectedOohEntry, setSelectedOohEntry] = useState<HospitalAtNightEntry | null>(null);
 
   const loading = patientsLoading || handoversLoading || oohLoading;
@@ -321,6 +437,18 @@ export default function HandoverListPage() {
   // Helper to get pending OOH entry for a patient
   const getPendingOohEntry = (patientId: string): HospitalAtNightEntry | undefined => {
     return oohEntries.find(e => e.patientId === patientId && e.reviewStatus === 'Pending');
+  };
+
+  // Helper to get active tasks for a patient
+  const getActiveTasks = (patientId: string) =>
+    allTasks.filter(t => t.patientId === patientId && t.status !== 'Complete');
+
+  const handleTaskSubmit = (data: Omit<PatientTask, 'id' | 'patientId' | 'createdAt' | 'updatedAt' | 'comments'>) => {
+    if (!taskModalPatient) return;
+    const now = new Date().toISOString();
+    storage.createTask({ id: uuidv4(), patientId: taskModalPatient.id, createdAt: now, updatedAt: now, comments: [], ...data });
+    refreshTasks();
+    setTaskModalPatient(null);
   };
 
   // Load default ward from localStorage on mount
@@ -554,6 +682,18 @@ export default function HandoverListPage() {
                           </span>
                         )}
                       </div>
+                      {/* Active Tasks Indicator */}
+                      {getActiveTasks(patient.id).length > 0 && (
+                        <button
+                          onClick={() => { window.location.href = `/patients/${patient.id}`; }}
+                          className="mt-2 flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-800 border border-indigo-300 rounded text-xs font-medium hover:bg-indigo-200 transition-colors print:hidden"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          {getActiveTasks(patient.id).length} Active Task{getActiveTasks(patient.id).length !== 1 ? 's' : ''}
+                        </button>
+                      )}
                       {/* Active OOH Review Indicator */}
                       {getPendingOohEntry(patient.id) && (
                         <button
@@ -629,6 +769,18 @@ export default function HandoverListPage() {
                         <button
                           onClick={(e) => {
                             e.preventDefault();
+                            setTaskModalPatient(patient);
+                          }}
+                          className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded border border-indigo-300 text-xs font-medium hover:bg-indigo-200 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Create Task
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
                             setHanModalPatient(patient);
                           }}
                           className="mt-2 flex items-center justify-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded border border-purple-300 text-xs font-medium hover:bg-purple-200 transition-colors"
@@ -684,6 +836,16 @@ export default function HandoverListPage() {
           isOpen={true}
           onClose={() => setReferralModalPatient(null)}
           onSubmit={handleReferralSubmit}
+        />
+      )}
+
+      {/* Create Task Modal */}
+      {taskModalPatient && (
+        <CreateTaskModal
+          patient={taskModalPatient}
+          isOpen={true}
+          onClose={() => setTaskModalPatient(null)}
+          onSubmit={handleTaskSubmit}
         />
       )}
 

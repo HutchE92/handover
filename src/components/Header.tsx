@@ -10,6 +10,7 @@ export default function Header() {
     { href: '/', label: 'Dashboard' },
     { href: '/patients', label: 'Patients' },
     { href: '/handover', label: 'Handover' },
+    { href: '/tasks', label: 'Tasks' },
     { href: '/hospital-at-night', label: 'Hospital Out Of Hours' },
     { href: '/referrals', label: 'Referrals' },
   ];
