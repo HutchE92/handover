@@ -92,15 +92,19 @@ export default function PatientDetailClient() {
     refreshReferrals();
   }, [referralEntries, refreshReferrals]);
 
-  // Auto-expand active tasks when arriving via #active-tasks hash
+  // Auto-expand active tasks when arriving via the handover page task indicator
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#active-tasks') {
-      setShowActiveTasks(true);
-      setTimeout(() => {
-        document.getElementById('active-tasks')?.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
+    if (typeof window !== 'undefined' && patientId) {
+      const flag = sessionStorage.getItem('expandActiveTasks');
+      if (flag === patientId) {
+        sessionStorage.removeItem('expandActiveTasks');
+        setShowActiveTasks(true);
+        setTimeout(() => {
+          document.getElementById('active-tasks')?.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      }
     }
-  }, []);
+  }, [patientId]);
 
   // My Tasks (assign to me) state – synced with localStorage
   const [myTaskIds, setMyTaskIds] = useState<string[]>([]);
