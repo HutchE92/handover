@@ -3934,18 +3934,21 @@ const sampleTasks: PatientTask[] = [
   { id: 'task25', patientId: 'p24', createdBy: 'Dr. Ahmed', assignedTo: ['HCA', 'Nurse'], priority: 'Low', taskDetails: 'Bowel care assessment. Patient has not opened bowels for 5 days. Ensure prescribed laxatives are being administered. Report to nurse if no bowel movement by today.', status: 'New', dueDate: _today, createdAt: `${_yesterday}T09:00:00.000Z`, updatedAt: `${_yesterday}T09:00:00.000Z`, comments: [] },
 ];
 
-// Initialize with sample data if empty
+// Increment this version whenever sample data changes — forces re-seed on all devices
+const SEED_VERSION = '3';
+
+// Initialize with sample data if empty or outdated
 export function initializeData(): void {
   if (!isBrowser) return;
 
   const initialized = localStorage.getItem(STORAGE_KEYS.initialized);
-  if (!initialized) {
+  if (initialized !== SEED_VERSION) {
     setStorage(STORAGE_KEYS.patients, samplePatients);
     setStorage(STORAGE_KEYS.handoverNotes, sampleHandoverNotes);
     setStorage(STORAGE_KEYS.hospitalAtNight, sampleHospitalAtNight);
     setStorage(STORAGE_KEYS.specialtyReferrals, sampleSpecialtyReferrals);
     setStorage(STORAGE_KEYS.tasks, sampleTasks);
-    localStorage.setItem(STORAGE_KEYS.initialized, 'true');
+    localStorage.setItem(STORAGE_KEYS.initialized, SEED_VERSION);
   }
 }
 
